@@ -1,0 +1,2 @@
+streamlit>=1.42.0
+clarifai>=11.1.1

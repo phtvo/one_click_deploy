@@ -1,0 +1,13 @@
+[theme]
+base="light"
+primaryColor="#356dff"
+
+[client]
+showErrorDetails = false
+showSidebarNavigation = false
+
+[server]
+# for uploading file
+enableXsrfProtection = false
+enableCORS = false
+maxMessageSize = 1000
