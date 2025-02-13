@@ -1,11 +1,44 @@
+import os
 import subprocess
 import sys
 import threading
 from typing import List
 
 from clarifai.utils.logging import logger
+import psutil
+import signal
 
 PYTHON_EXEC = sys.executable
+
+def kill_process_tree(parent_pid, include_parent: bool = True, skip_pid: int = None):
+    """Kill the process and all its child processes."""
+    if parent_pid is None:
+        parent_pid = os.getpid()
+        include_parent = False
+
+    try:
+        itself = psutil.Process(parent_pid)
+    except psutil.NoSuchProcess:
+        return
+
+    children = itself.children(recursive=True)
+    for child in children:
+        if child.pid == skip_pid:
+            continue
+        try:
+            child.kill()
+        except psutil.NoSuchProcess:
+            pass
+
+    if include_parent:
+        try:
+            itself.kill()
+
+            # Sometime processes cannot be killed with SIGKILL (e.g, PID=1 launched by kubernetes),
+            # so we send an additional signal to kill them.
+            itself.send_signal(signal.SIGQUIT)
+        except psutil.NoSuchProcess:
+            pass
 
 class OpenAI_APIServer:
   
@@ -21,15 +54,10 @@ class OpenAI_APIServer:
 
   def close (self):
     if self.process:
-      if self.backend == "sglang":
-        from sglang.utils import terminate_process
-        terminate_process(self.process)
-      else:
-        self.process.kill()
+      kill_process_tree(self.process.pid)
   
   def wait_for_startup(self):
     self.server_started_event.wait()
-  
   
   def _start_server(self, cmds):  
     try:
@@ -196,7 +224,10 @@ class OpenAI_APIServer:
     if quantization:
       cmds += ['--quantization', quantization,]
 
-    cmds += additional_list_args
+    if additional_list_args != []:
+      cmds += additional_list_args
+    
+    print("CMDS to run sglang server: ", cmds)
     
     _self = cls()
     
@@ -204,6 +235,8 @@ class OpenAI_APIServer:
     _self.port = port
     _self.backend = "vllm"
     _self.start_server_thread(cmds)
+    import time
+    time.sleep(5)
     
     return _self
   
@@ -247,8 +280,11 @@ class OpenAI_APIServer:
       ]
     if quantization:
       cmds += ['--quantization', quantization,]
-    cmds += additional_list_args
     
+    if additional_list_args:
+      cmds += additional_list_args
+    
+    print("CMDS to run sglang server: ", cmds)
     _self = cls()
     
     _self.host = host
@@ -262,4 +298,5 @@ class OpenAI_APIServer:
     logger.info("Waiting for " + f"http://{_self.host}:{_self.port}")
     wait_for_server(f"http://{_self.host}:{_self.port}")
     logger.info("Done")
+    
     return _self

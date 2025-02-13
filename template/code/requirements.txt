@@ -11,5 +11,7 @@ ninja
 qwen-vl-utils==0.0.8
 timm
 openai
+clarifai==11.1.1
+psutil
 
 $FRAMEWORK_REQUIREMENTS

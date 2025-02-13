@@ -28,14 +28,21 @@ class MyRunner(ModelClass):
     # checkpoints = "Qwen/Qwen2-7B-Instruct"
     checkpoints = os.path.join(os.path.dirname(__file__), "checkpoints")
     
+    # server args
+    server_args = $SERVER_ARGS
+    # if checkpoints == "checkpoints" => assign to checkpoints var aka local checkpoints path
+    if server_args.get("checkpoints") == "checkpoints":
+      server_args.update({"checkpoints": checkpoints})
+    if server_args.get("additional_list_args") == ['']:
+      server_args.pop("additional_list_args")
     # Start server
-    self.server = $INIT_SERVER
+    self.server = $INIT_SERVER(**server_args)
 
     # Create client
     self.client = OpenAIWrapper(
       client=OpenAI(
         api_key="notset",
-        base_url=OpenAIWrapper.make_api_url(self.host, self.port)
+        base_url=OpenAIWrapper.make_api_url(self.server.host, self.server.port)
       )
     )
     

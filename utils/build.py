@@ -17,13 +17,13 @@ def ignore_patterns(path, names):
 
 def build_model_upload(
   inference_framework: str,
-  init_framework_kwargs: dict,
+  custom_framework_kwargs: dict,
   config_yaml_data:dict,
   output_dir:str,
 ):
   assert inference_framework in FI, ValueError()
   os.makedirs(output_dir, exist_ok=True)
-  print(f"Copying from {template_code_dir} to {output_dir}")
+  #print(f"Copying from {template_code_dir} to {output_dir}")
   shutil.copytree(template_code_dir, output_dir, ignore=ignore_patterns, dirs_exist_ok=True)
   model_py = os.path.join(output_dir, "1/model.py")
   req_txt = os.path.join(output_dir, "requirements.txt")
@@ -44,10 +44,10 @@ def build_model_upload(
   with open(model_py, "r") as f:
     model_py_default = f.read()
   with open(model_py, "w") as f:
-    default_framework_kwargs = framework_info["default_kwargs"]
-    default_framework_kwargs.update(init_framework_kwargs)
-    init_server_code = f'{framework_info["init"]}(**{default_framework_kwargs})'
-    model_py_default = model_py_default.replace("$INIT_SERVER", init_server_code)
+    framework_kwargs = framework_info["default_kwargs"]
+    framework_kwargs.update(custom_framework_kwargs)
+    model_py_default = model_py_default.replace("$INIT_SERVER", framework_info["init"])
+    model_py_default = model_py_default.replace("$SERVER_ARGS", str(framework_kwargs))
     f.write(model_py_default)
 
 if __name__ == "__main__":
@@ -71,11 +71,11 @@ if __name__ == "__main__":
     }
   }
   build_model_upload(
-    inference_framework="lmdeploy",
-    init_framework_kwargs=dict(
+    inference_framework="sglang",
+    custom_framework_kwargs=dict(
       additional_list_args=["--enable-prefix-caching"],
       chat_template="qwen",
-      checkpoints="checkpoints",
+      checkpoints="sadfsad",
     ),
     config_yaml_data=default_config,
     output_dir=".venv/tmp/test_build"
