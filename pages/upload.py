@@ -100,7 +100,14 @@ def display():
 
     # Build info
     st.markdown("#### Build Info")
-    python_version = st.selectbox("Python Version", ["3.11", "3.12"])
+    python_version = st.selectbox(
+      "Python Version", 
+        [
+          "3.11", 
+          # use fixed env
+          #"3.12"
+        ]
+      )
 
     # Inference compute info
     st.markdown("#### Inference Compute Info")
@@ -211,7 +218,7 @@ def display():
       if upload_btn:
         with st.spinner("Uploading model.."):
           #upload_model(generated_model_dir, False, False)
-          run_subprocess(["clarifai", "model", "upload", "--model_path", str(generated_model_dir)])
+          run_subprocess(["clarifai", "model", "upload", "--model_path", str(generated_model_dir), "--skip_dockerfile"],)
           builder = ModelBuilder(generated_model_dir)
           st.success(f"Uploaded model, please see model at {builder.model_url} or use this url for inference in SDK.")
       elif test_locally_btn:
