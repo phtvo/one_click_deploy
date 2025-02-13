@@ -26,7 +26,7 @@ FRAMEWORK_INFO = {
     "github": "https://github.com/vllm-project/vllm",
     "supported_models": "https://docs.vllm.ai/en/latest/models/supported_models.html",
     "requirements": [
-      "vllm==0.7.1"
+      "vllm==0.7.2"
       ],
     "default_kwargs": dict(
       dtype="auto",
