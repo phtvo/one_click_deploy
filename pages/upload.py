@@ -55,7 +55,7 @@ def display():
   with st.sidebar:
       base_url = st.text_input("Base URL", value="https://api.clarifai.com")
       pat = st.text_input("PAT", type="password")
-      output_folder = st.text_input("Path to save generated model upload folder", "~/temp/",)
+      output_folder = st.text_input("Path to save generated model upload folder", "./tmp/",)
   if pat:
       os.environ["CLARIFAI_PAT"] = pat
   if not os.environ.get("CLARIFAI_PAT"):
@@ -144,7 +144,7 @@ def display():
           "repo_id": repo_id,
           "hf_token": hf_token
       }
-
+      
   with model_server_col:
     st.markdown("### Inference Settings")
     infer_framework = st.selectbox("Select inference framework", FI)
