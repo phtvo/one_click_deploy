@@ -1,6 +1,6 @@
 import os
 import sys
-
+os.environ['PATH'] = os.environ.get('PATH', '') + ':/sbin'
 sys.path.append(os.path.dirname(__file__))
 from openai_client_wrapper import OpenAIWrapper
 from openai_server_starter import OpenAI_APIServer

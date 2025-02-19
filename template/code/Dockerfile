@@ -77,6 +77,7 @@ ENV PYTHONPATH=${PYTHONPATH}:/home/nonroot/main \
 
 # Finally run the clarifai entrypoint to start the runner loop and local dev server.
 # Note(zeiler): we may want to make this a clarifai CLI call.
+ENV PATH=$PATH:/sbin
 ENTRYPOINT ["python", "-m", "clarifai.runners.server"]
 CMD ["--model_path", "/home/nonroot/main"]
 #############################

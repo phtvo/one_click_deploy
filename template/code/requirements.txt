@@ -1,6 +1,6 @@
 torch==2.5.1
 tokenizers==0.21.0
-transformers>=4.47
+transformers>=4.49.0
 accelerate==1.2.0
 optimum==1.23.3
 xformers

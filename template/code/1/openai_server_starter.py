@@ -167,6 +167,7 @@ class OpenAI_APIServer:
       cmds += [ '--max-prefill-token-num', str(max_prefill_token_num)]
     
     cmds += additional_list_args
+    print(f"CMDs to run lmdeploy server: {cmds}")
     
     _self = cls()
     
@@ -227,7 +228,7 @@ class OpenAI_APIServer:
     if additional_list_args != []:
       cmds += additional_list_args
     
-    print("CMDS to run sglang server: ", cmds)
+    print("CMDS to run vllm server: ", cmds)
     
     _self = cls()
     

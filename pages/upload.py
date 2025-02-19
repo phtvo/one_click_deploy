@@ -12,7 +12,7 @@ from utils.constant import FRAMEWORK_INFO as FI
 from utils.build import build_model_upload
 from clarifai.runners.models.model_builder import ModelBuilder
 from clarifai.utils.logging import logger
-
+import shlex
 
 def run_subprocess(command):
     env_vars = os.environ.copy()
@@ -28,9 +28,10 @@ def run_subprocess(command):
     process.stdin.write("\n")  # Send Enter key
     process.stdin.flush()  # Ensure the input is processed
 
-    log_queue = queue.Queue(maxsize=15)
+    log_queue = queue.Queue(maxsize=30)
     st_log_title.markdown(f"Running command `{' '.join(command)}`, see its log below")
     for line in iter(process.stdout.readline, ""):
+      print(line.strip())
       if log_queue.full():
         log_queue.get()
       log_queue.put(line.strip())
@@ -112,11 +113,11 @@ def display():
     # Inference compute info
     st.markdown("#### Inference Compute Info")
     cpu_limit = st.slider("CPU Limit", min_value=1, max_value=8, value=2)
-    cpu_memory = st.slider("CPU Memory", min_value=1, max_value=32, value=4)
+    cpu_memory = st.slider("CPU Memory", min_value=1, max_value=32, value=8)
     cpu_memory = f"{cpu_memory}Gi"
     num_accelerators = st.slider("Num Accelerators", min_value=0, max_value=4, value=1)
     accelerator_type = st.selectbox("Accelerator Type", ["NVIDIA-A10G", "NVIDIA-L4", "NVIDIA-T4", "NVIDIA-L40S", "NVIDIA-A100", "NVIDIA-H100",])
-    accelerator_memory = st.number_input("Accelerator Memory",  value=8)
+    accelerator_memory = st.number_input("Accelerator Memory",  value=24)
     accelerator_memory = f"{accelerator_memory}Gi"
 
     # Checkpoint settings (optional)
@@ -171,18 +172,19 @@ def display():
       custom_server_args = {}
       for arg_name, arg_value in default_server_args.items():
         if arg_value is None or isinstance(arg_value, str):
-          custom_server_args.update({arg_name: st.text_input(arg_name, value=arg_value)})
+          custom_server_args.update({arg_name: st.text_input("--" + arg_name, value=arg_value)})
         elif isinstance(arg_value, int):
-          custom_server_args.update({arg_name: st.number_input(arg_name, value=arg_value)})
+          custom_server_args.update({arg_name: st.number_input("--" + arg_name, value=arg_value)})
         elif isinstance(arg_value, bool):
-          custom_server_args.update({arg_name: st.checkbox(arg_name, value=arg_value)})
+          custom_server_args.update({arg_name: st.checkbox("--" + arg_name, value=arg_value)})
         elif isinstance(arg_value, float):
           custom_server_args.update({arg_name: st.number_input(
-            arg_name, value=arg_value, min_value=0., max_value=1., step=0.05)})
+            "--" + arg_name, value=arg_value, min_value=0., max_value=1., step=0.05)})
       additional_args = st.text_area(
         "Additional args", help="Additional args (exclude all of above args) to run the server e.g. '--abc 123 --enable-something --float 0.4'")
+    print(additional_args)
     if additional_args != "":
-      custom_server_args.update(dict(additional_list_args=[additional_args]))
+      custom_server_args.update(dict(additional_list_args=shlex.split(additional_args)))
     custom_server_args.update(dict(checkpoints="checkpoints" if download_checkpoints else hf_model_id))
     #st.code(custom_server_args)
   
@@ -224,7 +226,7 @@ def display():
       elif test_locally_btn:
         with st.spinner("Testing model locally..."):
           cmds = [
-            "clarifai", "model", "test-locally", "--model_path", str(generated_model_dir), "--keep_env"]
+            "clarifai", "model", "test-locally", "--model_path", str(generated_model_dir), "--keep_env", "--mode", "container"]
           run_subprocess(cmds)
         
 
