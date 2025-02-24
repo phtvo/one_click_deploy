@@ -17,6 +17,19 @@ import shlex
 
 PYTHON_EXEC = sys.executable
 
+def create_model_note(model_type, model_name, hf_model_id, model_url, model_out_dir):
+  root = os.path.dirname(__file__)
+  note_dir = os.path.join(root, "../template/model_notes")
+  with open(os.path.join(note_dir, f"{model_type}.md"), "r") as f:
+    note_data = f.read()
+  new_note = note_data.format(
+    model_name=model_name,
+    hf_model_id=hf_model_id,
+    model_url=model_url
+  )
+  with open(os.path.join(model_out_dir, "MODEL_NOTES.MD"), "w") as f:
+    f.write(new_note)
+
 def run_subprocess(command):
     env_vars = os.environ.copy()
     process = subprocess.Popen(
@@ -223,11 +236,13 @@ def display():
       )
       st.info(f"Model code was generated at '{generated_model_dir}'")
       
+      builder = ModelBuilder(generated_model_dir)
+      create_model_note(model_type_id, hf_model_id=hf_model_id, model_name=valid_model_id, model_url=builder.model_url, model_out_dir=generated_model_dir)
+      
       if upload_btn:
         with st.spinner("Uploading model.."):
           #upload_model(generated_model_dir, False, False)
           run_subprocess(["clarifai", "model", "upload", "--model_path", generated_model_dir, "--skip_dockerfile"],)
-          builder = ModelBuilder(generated_model_dir)
           st.success(f"Uploaded model, please see model at {builder.model_url} or use this url for inference in SDK.")
       elif test_locally_btn:
         with st.spinner("Testing model locally..."):
