@@ -1,16 +1,19 @@
-# One click deploy
-one deploy llm/vlm in Clarifai
+## One click deploy
+one click deploy llm/vlm in Clarifai
 
 ![screenshot](assets/screenshot.png)
 
+## Chat with uploaded model
 
-# Install
+![chat](assets/chat.png)
+
+## Install
 
 ```
 pip install -r requirements.txt
 ```
 
-# Start streamlit
+## Start streamlit
 
 ```
 streamlit run app.py

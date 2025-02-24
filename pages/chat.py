@@ -67,6 +67,8 @@ def display():
     st.session_state["messages"][0] = {"role": "system", "content": system_prompt}
     st.session_state["system_prompt"] = system_prompt
 
+  chat_col, proto_col = st.columns([3, 2])
+  
   # Display chat messages from session state
   for msg in st.session_state["messages"]:
     if msg["role"] != "system":
@@ -75,6 +77,7 @@ def display():
 
   # Input for user message
   user_input = st.chat_input("Type your message...")
+  input_proto = None
   if user_input:
       # Append user message to chat history
       st.session_state["messages"].append({"role": "user", "content": user_input})
@@ -119,6 +122,13 @@ def display():
               st.error(status_code_pb2)
       # Append assistant message to chat history
       st.session_state["messages"].append({"role": "assistant", "content": model_response_text})
+  with st.sidebar:
+    st.markdown("---")
+    st.subheader("Input format")
+    
+    st.markdown("##### Must set inference params: `chat_history=True`")
+    st.markdown("##### Input proto")
+    st.write(input_proto)
       
 if __name__ == "__main__":
   display()
