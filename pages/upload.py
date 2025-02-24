@@ -2,6 +2,7 @@ import os
 import logging
 import queue
 import subprocess
+import sys
 import streamlit as st
 st.set_page_config(layout="wide")
 
@@ -13,6 +14,8 @@ from utils.build import build_model_upload
 from clarifai.runners.models.model_builder import ModelBuilder
 from clarifai.utils.logging import logger
 import shlex
+
+PYTHON_EXEC = sys.executable
 
 def run_subprocess(command):
     env_vars = os.environ.copy()
@@ -57,11 +60,13 @@ def display():
       base_url = st.text_input("Base URL", value="https://api.clarifai.com")
       pat = st.text_input("PAT", type="password")
       output_folder = st.text_input("Path to save generated model upload folder", "./tmp/",)
+  if base_url:
+    os.environ["CLARIFAI_API_BASE"] = base_url
   if pat:
-      os.environ["CLARIFAI_PAT"] = pat
+    os.environ["CLARIFAI_PAT"] = pat
   if not os.environ.get("CLARIFAI_PAT"):
-      st.error("Please insert your PAT")
-      st.stop()
+    st.error("Please insert your PAT")
+    st.stop()
 
   
   def make_model_id(hf_id):
@@ -116,12 +121,13 @@ def display():
     cpu_memory = st.slider("CPU Memory", min_value=1, max_value=32, value=8)
     cpu_memory = f"{cpu_memory}Gi"
     num_accelerators = st.slider("Num Accelerators", min_value=0, max_value=4, value=1)
-    accelerator_type = st.selectbox("Accelerator Type", ["NVIDIA-A10G", "NVIDIA-L4", "NVIDIA-T4", "NVIDIA-L40S", "NVIDIA-A100", "NVIDIA-H100",])
+    gpus = ["NVIDIA-A10G", "NVIDIA-L4", "NVIDIA-T4", "NVIDIA-L40S", "NVIDIA-A100", "NVIDIA-H100",]
+    accelerator_type = st.multiselect("Accelerator Type", options=gpus, default=gpus)
     accelerator_memory = st.number_input("Accelerator Memory",  value=24)
     accelerator_memory = f"{accelerator_memory}Gi"
 
     # Checkpoint settings (optional)
-    download_checkpoints = st.toggle("Enable cache checkpoints", value=True)
+    download_checkpoints = st.toggle("Enable cache checkpoints", value=False)
     if download_checkpoints:
         repo_id = hf_model_id
         hf_token = st.text_input("HuggingFace Token", "", type="password")
@@ -142,7 +148,7 @@ def display():
           "cpu_limit": str(cpu_limit),
           "cpu_memory": cpu_memory,
           "num_accelerators": num_accelerators,
-          "accelerator_type": [accelerator_type],
+          "accelerator_type": accelerator_type,
           "accelerator_memory": accelerator_memory
       }
     }
@@ -191,7 +197,7 @@ def display():
   with control_col:
     st.markdown("### Run")
     generate_btn = st.button("Generate code only")
-    upload_btn = st.button("Generate and Upload model")
+    upload_btn = st.button("Upload model")
     test_locally_btn = st.button("Test model locally")
     def validate_chat_template():
       """ Validate server args """
@@ -208,7 +214,7 @@ def display():
     
     if any([generate_btn, upload_btn, test_locally_btn]):
       validate_chat_template()
-      generated_model_dir = os.path.join(output_folder, valid_model_id)
+      generated_model_dir = os.path.join(output_folder, model_id)
       build_model_upload(
         inference_framework=infer_framework,
         custom_framework_kwargs=custom_server_args,
@@ -220,13 +226,13 @@ def display():
       if upload_btn:
         with st.spinner("Uploading model.."):
           #upload_model(generated_model_dir, False, False)
-          run_subprocess(["clarifai", "model", "upload", "--model_path", str(generated_model_dir), "--skip_dockerfile"],)
+          run_subprocess(["clarifai", "model", "upload", "--model_path", generated_model_dir, "--skip_dockerfile"],)
           builder = ModelBuilder(generated_model_dir)
           st.success(f"Uploaded model, please see model at {builder.model_url} or use this url for inference in SDK.")
       elif test_locally_btn:
         with st.spinner("Testing model locally..."):
           cmds = [
-            "clarifai", "model", "test-locally", "--model_path", str(generated_model_dir), "--keep_env", "--mode", "container"]
+            "clarifai", "model", "test-locally", "--model_path", str(generated_model_dir), "--keep_env", "--mode", "env"]
           run_subprocess(cmds)
         
 

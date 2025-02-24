@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 import threading
+import time
 from typing import List
 
 from clarifai.utils.logging import logger
@@ -69,7 +70,10 @@ class OpenAI_APIServer:
       )
       for line in self.process.stderr:
         logger.info(line.strip())
-        if f" running on http://{self.host}:" in line.strip():
+        if f" running on http://{self.host}:" in line.strip() or (
+          self.backend == "vllm" and "application startup complete" in line.strip().lower()
+        ):
+          time.sleep(3)
           self.server_started_event.set()
           break
     except Exception as e:

@@ -3,7 +3,7 @@ FRAMEWORK_INFO = {
     "github": "https://github.com/InternLM/lmdeploy",
     "supported_models": "https://lmdeploy.readthedocs.io/en/latest/supported_models/supported_models.html",
     "requirements": [
-      "lmdeploy==0.7.0.post2"
+      "lmdeploy==0.7.0.post3"
       ],
     "default_kwargs": {
       "backend": "turbomind",
@@ -26,7 +26,7 @@ FRAMEWORK_INFO = {
     "github": "https://github.com/vllm-project/vllm",
     "supported_models": "https://docs.vllm.ai/en/latest/models/supported_models.html",
     "requirements": [
-      "vllm==0.7.2"
+      "vllm==0.7.3"
       ],
     "default_kwargs": dict(
       dtype="auto",
