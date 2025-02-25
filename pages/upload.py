@@ -29,6 +29,8 @@ def create_model_note(model_type, model_name, hf_model_id, model_url, model_out_
   )
   with open(os.path.join(model_out_dir, "MODEL_NOTES.MD"), "w") as f:
     f.write(new_note)
+  
+  return new_note
 
 def run_subprocess(command):
     env_vars = os.environ.copy()
@@ -237,7 +239,7 @@ def display():
       st.info(f"Model code was generated at '{generated_model_dir}'")
       
       builder = ModelBuilder(generated_model_dir)
-      create_model_note(model_type_id, hf_model_id=hf_model_id, model_name=valid_model_id, model_url=builder.model_url, model_out_dir=generated_model_dir)
+      model_note = create_model_note(model_type_id, hf_model_id=hf_model_id, model_name=valid_model_id, model_url=builder.model_url, model_out_dir=generated_model_dir)
       
       if upload_btn:
         with st.spinner("Uploading model.."):
@@ -249,7 +251,10 @@ def display():
           cmds = [
             "clarifai", "model", "test-locally", "--model_path", str(generated_model_dir), "--keep_env", "--mode", "env"]
           run_subprocess(cmds)
-        
+      
+      #st.markdown("`Model Note:`")
+      with st.expander("`Model Note`", expanded=True):
+        st.text_area("Copy this for model note", model_note)        
 
 
 if __name__ == "__main__":
