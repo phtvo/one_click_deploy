@@ -72,7 +72,7 @@ def display():
   # Sidebar settings
   st.sidebar.header("Settings")
   with st.sidebar:
-      base_url = st.text_input("Base URL", value="https://api.clarifai.com")
+      base_url = st.text_input("Base URL", value=os.environ.get("CLARIFAI_API_BASE","https://api.clarifai.com"))
       pat = st.text_input("PAT", type="password")
       output_folder = st.text_input("Path to save generated model upload folder", "./tmp/",)
   if base_url:

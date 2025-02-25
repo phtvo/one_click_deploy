@@ -18,6 +18,9 @@ def display():
   # Sidebar
   st.sidebar.header("Model Setting")
   model_url = st.sidebar.text_input("Model URL", value="https://clarifai.com/phatvo/text-generation/models/Qwen2_5-0_5B-Instruct-vllm")
+  base_url = st.sidebar.text_input("Base URL", value=os.environ.get("CLARIFAI_API_BASE","https://api.clarifai.com"))
+  if base_url:
+    os.environ["CLARIFAI_API_BASE"] = base_url
   pat = st.sidebar.text_input("PAT", type="password")
   if pat:
     os.environ["CLARIFAI_PAT"] = pat
@@ -52,7 +55,7 @@ def display():
   # Init model
   if not "model_url" in st.session_state or st.session_state["model_url"] != model_url:
     st.session_state["model_url"] = model_url
-  model = Model(url=st.session_state["model_url"], pat=os.environ.get("CLARIFAI_PAT", "xx"))
+  model = Model(url=st.session_state["model_url"], pat=os.environ.get("CLARIFAI_PAT", "xx"), base_url=base_url)
   print("Model: ", st.session_state["model_url"])
   # system prompt
   if "system_prompt" not in st.session_state:
