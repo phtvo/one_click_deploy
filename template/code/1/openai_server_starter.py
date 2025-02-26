@@ -55,7 +55,10 @@ class OpenAI_APIServer:
 
   def close (self):
     if self.process:
-      kill_process_tree(self.process.pid)
+      try:
+        kill_process_tree(self.process.pid)
+      except:
+        self.process.kill()
   
   def wait_for_startup(self):
     self.server_started_event.wait()

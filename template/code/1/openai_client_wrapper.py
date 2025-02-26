@@ -128,6 +128,7 @@ class OpenAIWrapper():
           **inference_params,
           extra_body=extra_body,
           stream=True,
+          stream_options={"include_usage": True}
       ) for msg in messages
     ]
     
@@ -143,6 +144,8 @@ class OpenAIWrapper():
         if chunk:
           outputs[idx].data.text.raw += chunk.choices[0].delta.content if (
               chunk and chunk.choices[0].delta.content) is not None else ''
+          outputs[idx].prompt_tokens = chunk.usage.prompt_tokens
+          outputs[idx].completion_tokens = chunk.usage.completion_tokens
 
     return service_pb2.MultiOutputResponse(outputs=outputs, status=status_pb2.Status(code=status_code_pb2.SUCCESS))
   
@@ -160,6 +163,7 @@ class OpenAIWrapper():
           **inference_params,
           extra_body=extra_body,
           stream=True,
+          stream_options={"include_usage": True}
       ) for msg in messages
     ]
     
@@ -177,6 +181,8 @@ class OpenAIWrapper():
                                   if (chunk and chunk.choices[0].delta.content) is not None else '')
           output.data.text.raw = text
           output.status.code = status_code_pb2.SUCCESS
+          output.prompt_tokens = chunk.usage.prompt_tokens
+          output.completion_tokens = chunk.usage.completion_tokens
           
       yield resp
     
