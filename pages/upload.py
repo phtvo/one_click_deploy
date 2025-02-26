@@ -141,6 +141,7 @@ def display():
     accelerator_memory = st.number_input("Accelerator Memory",  value=24)
     accelerator_memory = f"{accelerator_memory}Gi"
 
+    clarifai_threads = st.slider("Clarifai runner threads", min_value=1, max_value=128, value=16)
     # Checkpoint settings (optional)
     download_checkpoints = st.toggle("Enable cache checkpoints", value=False)
     if download_checkpoints:
@@ -234,7 +235,8 @@ def display():
         inference_framework=infer_framework,
         custom_framework_kwargs=custom_server_args,
         config_yaml_data=yaml_config,
-        output_dir=generated_model_dir
+        output_dir=generated_model_dir,
+        clarifai_threads=clarifai_threads
       )
       st.info(f"Model code was generated at '{generated_model_dir}'")
       

@@ -20,6 +20,7 @@ def build_model_upload(
   custom_framework_kwargs: dict,
   config_yaml_data:dict,
   output_dir:str,
+  clarifai_threads:str=16,
 ):
   assert inference_framework in FI, ValueError()
   os.makedirs(output_dir, exist_ok=True)
@@ -28,6 +29,7 @@ def build_model_upload(
   model_py = os.path.join(output_dir, "1/model.py")
   req_txt = os.path.join(output_dir, "requirements.txt")
   cf_yaml = os.path.join(output_dir, "config.yaml")
+  dockerfile = os.path.join(output_dir, "Dockerfile")
   framework_info = FI[inference_framework]
   
   
@@ -40,6 +42,12 @@ def build_model_upload(
     add_frwk_req = "\n".join(framework_info["requirements"])
     req_txt_default = req_txt_default.replace("$FRAMEWORK_REQUIREMENTS", add_frwk_req)
     f.write(req_txt_default)
+  
+  with open(dockerfile, "r") as f:
+    dockerfile_default = f.read()
+  with open(dockerfile, "w") as f:
+    dockerfile_default = dockerfile_default.replace("${CLARIFAI_NUM_THREADS}", str(clarifai_threads))
+    f.write(dockerfile_default)
   
   with open(model_py, "r") as f:
     model_py_default = f.read()
