@@ -47,6 +47,8 @@ def build_model_upload(
     dockerfile_default = f.read()
   with open(dockerfile, "w") as f:
     dockerfile_default = dockerfile_default.replace("${CLARIFAI_NUM_THREADS}", str(clarifai_threads))
+    download_cmd_docker = """#RUN ["python", "-m", "clarifai.cli", "model", "download-checkpoints", """
+    dockerfile_default = dockerfile_default.replace(download_cmd_docker, download_cmd_docker[1:])
     f.write(dockerfile_default)
   
   with open(model_py, "r") as f:
@@ -86,5 +88,5 @@ if __name__ == "__main__":
       checkpoints="sadfsad",
     ),
     config_yaml_data=default_config,
-    output_dir=".venv/tmp/test_build"
+    output_dir="tmp/test_build"
   )

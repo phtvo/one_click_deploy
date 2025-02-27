@@ -172,7 +172,8 @@ def display():
       yaml_config["checkpoints"] = {
           "type": "huggingface",
           "repo_id": repo_id,
-          "hf_token": hf_token
+          "hf_token": hf_token,
+          "when": "build"
       }
       
   with model_server_col:
@@ -207,7 +208,7 @@ def display():
     print(additional_args)
     if additional_args != "":
       custom_server_args.update(dict(additional_list_args=shlex.split(additional_args)))
-    custom_server_args.update(dict(checkpoints="checkpoints" if download_checkpoints else hf_model_id))
+    custom_server_args.update(dict(checkpoints="build" if download_checkpoints else hf_model_id))
     #st.code(custom_server_args)
   
   with control_col:

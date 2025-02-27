@@ -3,7 +3,8 @@ FRAMEWORK_INFO = {
     "github": "https://github.com/InternLM/lmdeploy",
     "supported_models": "https://lmdeploy.readthedocs.io/en/latest/supported_models/supported_models.html",
     "requirements": [
-      "lmdeploy==0.7.0.post3"
+      "lmdeploy==0.7.1",
+      "transformers==4.49.0"
       ],
     "default_kwargs": {
       "backend": "turbomind",
@@ -26,7 +27,8 @@ FRAMEWORK_INFO = {
     "github": "https://github.com/vllm-project/vllm",
     "supported_models": "https://docs.vllm.ai/en/latest/models/supported_models.html",
     "requirements": [
-      "vllm==0.7.3"
+      "vllm==0.7.3",
+      "transformers==4.49.0"
       ],
     "default_kwargs": dict(
       dtype="auto",
@@ -43,18 +45,9 @@ FRAMEWORK_INFO = {
     "github": "https://github.com/sgl-project/sgl-project.github.io",
     "supported_models": "https://docs.sglang.ai/references/supported_models.html",
     "requirements": [
-      "sglang[all]==0.3.6",
-      "orjson==3.10.11",
-      "python-multipart==0.0.17",
-      "",
-      "--extra-index-url https://flashinfer.ai/whl/cu124/torch2.4/",
-      "flashinfer",
-      "autoawq==0.2.7.post3",
-      #"orjson==3.10.11",
-      #"python-multipart==0.0.17",
-      #"sgl-kernel",
-      #"--find-links https://flashinfer.ai/whl/cu124/torch2.5*/",
-      #"sglang[all]==0.4.2.post4",
+      "--find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python",
+      "sglang[all]>=0.4.3.post2",
+      "transformers==4.48.3",
     ],
     "default_kwargs": dict(
       dtype="auto",
