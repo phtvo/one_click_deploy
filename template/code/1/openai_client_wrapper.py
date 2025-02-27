@@ -142,10 +142,12 @@ class OpenAIWrapper():
     for chunk_batch in itertools.zip_longest(*streams, fillvalue=None):
       for idx, chunk in enumerate(chunk_batch):
         if chunk:
-          outputs[idx].data.text.raw += chunk.choices[0].delta.content if (
-              chunk and chunk.choices[0].delta.content) is not None else ''
-          outputs[idx].prompt_tokens = chunk.usage.prompt_tokens
-          outputs[idx].completion_tokens = chunk.usage.completion_tokens
+          if chunk.choices:
+            outputs[idx].data.text.raw += chunk.choices[0].delta.content if (
+                chunk and chunk.choices[0].delta.content) is not None else ''
+          if chunk.usage:
+            outputs[idx].prompt_tokens = chunk.usage.prompt_tokens
+            outputs[idx].completion_tokens = chunk.usage.completion_tokens
 
     return service_pb2.MultiOutputResponse(outputs=outputs, status=status_pb2.Status(code=status_code_pb2.SUCCESS))
   
@@ -176,13 +178,15 @@ class OpenAIWrapper():
       resp = service_pb2.MultiOutputResponse(status=status_pb2.Status(code=status_code_pb2.SUCCESS))
       for chunk in chunk_batch:
         output = resp.outputs.add()
+        output.status.code = status_code_pb2.SUCCESS
         if chunk:
-          text = (chunk.choices[0].delta.content
-                                  if (chunk and chunk.choices[0].delta.content) is not None else '')
-          output.data.text.raw = text
-          output.status.code = status_code_pb2.SUCCESS
-          output.prompt_tokens = chunk.usage.prompt_tokens
-          output.completion_tokens = chunk.usage.completion_tokens
+          if chunk.choices:
+            text = (chunk.choices[0].delta.content
+                                    if (chunk and chunk.choices[0].delta.content) is not None else '')
+            output.data.text.raw = text
+          if chunk.usage:
+            output.prompt_tokens = chunk.usage.prompt_tokens
+            output.completion_tokens = chunk.usage.completion_tokens
           
       yield resp
     
