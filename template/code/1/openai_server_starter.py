@@ -308,3 +308,123 @@ class OpenAI_APIServer:
     logger.info("Done")
     
     return _self
+  
+  @classmethod
+  def from_llamacpp_backend(
+    cls,
+    checkpoints,
+    model,
+    chat_format:str,
+    n_gpu_layers: int = 0,
+    split_mode: int = 1,
+    main_gpu: int = 0,
+    tensor_split: float = None,
+    n_ctx: int = 512,
+    n_batch: int = 512,
+    n_ubatch: int = 512,
+    n_threads: int = None,
+    n_threads_batch: int = None,
+    numa:bool=False,
+    flash_attn:bool=False,
+    offload_kqv: bool = True,
+
+    port=23333,
+    host="localhost",
+    additional_list_args: List[str] = []
+  ):
+    """Run LlamaCPP OpenAI compatible server
+
+    Args:
+        model (str): gguf file.
+        model (str): model id or path.
+        n_gpu_layers (int): The number of layers to put on the GPU. The rest will be on the CPU. Set -1 to move all to GPU.
+        split_mode: How to split the model across GPUs. See llama_cpp.LLAMA_SPLIT_* for options.
+        main_gpu: main_gpu interpretation depends on split_mode: LLAMA_SPLIT_MODE_NONE: the GPU that is used for the entire model. LLAMA_SPLIT_MODE_ROW: the GPU that is used for small tensors and intermediate results. LLAMA_SPLIT_MODE_LAYER: ignored
+        tensor_split: How split tensors should be distributed across GPUs. If None, the model is not split.
+        n_ctx: Text context, 0 = from model
+        n_batch: Prompt processing maximum batch size
+        n_ubatch: Physical batch size
+        n_threads: Number of threads to use for generation
+        n_threads_batch: Number of threads to use for batch processing
+        numa: enable numa policy
+        
+        port (int, optional): port. Defaults to 23333.
+        host (str, optional): host name. Defaults to "localhost".
+        
+        additional_list_args (List[str], optional): additional args to run subprocess cmd e.g. ["--arg-name", "arg value"]. Defaults to [].
+
+    """
+    cmds = [
+      PYTHON_EXEC,
+      '-m',
+      'llama_cpp.server',
+      
+      '--model ',
+      str(model),
+      
+      '--hf_model_id ',
+      str(checkpoints),
+
+      '--chat_format',
+      str(chat_format),
+      
+      '--n_gpu_layers',
+      str(n_gpu_layers),
+      
+      '--port',
+      str(port),
+      
+      '--host',
+      str(host),
+      
+      '--main_gpu',
+      str(main_gpu),
+      
+      '--split_mode',
+      str(split_mode),
+      
+      '--n_ctx',
+      str(n_ctx),
+      
+      '--n_batch',
+      str(n_batch),
+      
+      '--n_ubatch',
+      str(n_ubatch),
+      
+      
+    ]
+    
+    if tensor_split is not None:
+      cmds += ['--tensor_split', str(tensor_split),]
+    
+    if n_threads_batch is not None:
+      cmds += ['--n_threads_batch', str(n_threads_batch),]
+    
+    if n_threads is not None:
+      cmds += ['--n_threads', str(n_threads),]
+    
+    if numa is not None:
+      cmds += ['--numa']
+    
+    if flash_attn is not None:
+      cmds += ['--flash_attn']
+    
+    if offload_kqv is not None:
+      cmds += ['--offload_kqv']
+
+    if additional_list_args != []:
+      cmds += additional_list_args
+    
+    print("CMDS to run `llamacpp` server: ", cmds)
+    
+    _self = cls()
+    
+    _self.host = host
+    _self.port = port
+    _self.backend = "llamacpp"
+    _self.start_server_thread(cmds)
+    import time
+    time.sleep(5)
+    
+    return _self

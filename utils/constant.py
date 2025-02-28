@@ -61,4 +61,17 @@ FRAMEWORK_INFO = {
     "additional_list_args": "",
     "init": "OpenAI_APIServer.from_sglang_backend"
   },
+  "llamacpp": {
+    "github": "https://github.com/abetlen/llama-cpp-python/tree/main",
+    "supported_models": "llama.cpp supports GGUF (Grok GGUF Unified Format) models, which are optimized for efficient inference on CPUs and some GPUs. It mainly supports LLaMA-based, Mistral-based, and other Transformer-based models.",
+    "requirements": [
+      "llama-cpp-python",
+      "--extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu124",
+      "transformers==4.49",
+    ],
+    "default_kwargs": dict(
+    ),
+    "additional_list_args": "",
+    "init": "OpenAI_APIServer.from_llamacpp_backend"
+  },
 }
