@@ -189,27 +189,41 @@ def display():
         unsafe_allow_html=True
     )
     st.markdown(f"[🤖 Supported models]({fi['supported_models']})", unsafe_allow_html=True)
-    default_server_args = fi["default_kwargs"]
+    default_server_args = fi["init_args"]
     with st.expander("#### Server args"):
       st.markdown("These args are used to start up OpenAI compatible server, please refer to framework page for details")
       custom_server_args = {}
-      for arg_name, arg_value in default_server_args.items():
-        if arg_value is None or isinstance(arg_value, str):
-          custom_server_args.update({arg_name: st.text_input("--" + arg_name, value=arg_value)})
-        elif isinstance(arg_value, int):
-          custom_server_args.update({arg_name: st.number_input("--" + arg_name, value=arg_value)})
-        elif isinstance(arg_value, bool):
-          custom_server_args.update({arg_name: st.checkbox("--" + arg_name, value=arg_value)})
-        elif isinstance(arg_value, float):
-          custom_server_args.update({arg_name: st.number_input(
-            "--" + arg_name, value=arg_value, min_value=0., max_value=1., step=0.05)})
+      required_args = default_server_args["required_args"]
+      optional_args = default_server_args["optional_args"]
+      def create_args_input(data_args):
+        for arg_name, arg_info in data_args.items():
+          if arg_name == "additional_list_args":
+            continue
+          desc = arg_info["desc"]
+          arg_type = arg_info["type"]
+          arg_default_value = arg_info["default"]
+          if arg_default_value is None or isinstance(arg_type, str):
+            custom_server_args.update({arg_name: st.text_input("--" + arg_name, value=arg_default_value, help=desc)})
+          elif isinstance(arg_type, int) or arg_type == int:
+            custom_server_args.update({arg_name: st.number_input(
+                "--" + arg_name, value=int(arg_default_value), help=desc)})
+          elif isinstance(arg_type, bool) or arg_type == bool:
+            custom_server_args.update({arg_name: st.checkbox(
+                "--" + arg_name, value=bool(arg_default_value), help=desc)})
+          elif isinstance(arg_type, float) or arg_type == float:
+            custom_server_args.update({arg_name: st.number_input(
+                "--" + arg_name, value=float(arg_default_value), min_value=0., max_value=1., step=0.01, help=desc)})
+      if required_args:
+        st.markdown("**Required args**")
+        create_args_input(required_args)
+      st.markdown("**Optional args**")
+      create_args_input(optional_args)
       additional_args = st.text_area(
-        "Additional args", help="Additional args (exclude all of above args) to run the server e.g. '--abc 123 --enable-something --float 0.4'")
-    print(additional_args)
+          "Additional args", help=optional_args.get("additional_list_args", {}).get("desc", "Additional args (exclude all of above args) to run the server e.g. '--abc 123 --enable-something --float 0.4'"))
     if additional_args != "":
+      print("additional_args: ", additional_args)
       custom_server_args.update(dict(additional_list_args=shlex.split(additional_args)))
     custom_server_args.update(dict(checkpoints="build" if download_checkpoints else hf_model_id))
-    #st.code(custom_server_args)
   
   with control_col:
     st.markdown("### Run")

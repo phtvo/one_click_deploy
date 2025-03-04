@@ -54,10 +54,9 @@ def build_model_upload(
   with open(model_py, "r") as f:
     model_py_default = f.read()
   with open(model_py, "w") as f:
-    framework_kwargs = framework_info["default_kwargs"]
-    framework_kwargs.update(custom_framework_kwargs)
     model_py_default = model_py_default.replace("$INIT_SERVER", framework_info["init"])
-    model_py_default = model_py_default.replace("$SERVER_ARGS", str(framework_kwargs))
+    model_py_default = model_py_default.replace(
+        "$SERVER_ARGS", str(custom_framework_kwargs))
     f.write(model_py_default)
 
 if __name__ == "__main__":
