@@ -195,27 +195,34 @@ def display():
       custom_server_args = {}
       required_args = default_server_args["required_args"]
       optional_args = default_server_args["optional_args"]
-      def create_args_input(data_args):
+      def create_args_input(data_args, required=False):
         for arg_name, arg_info in data_args.items():
           if arg_name == "additional_list_args":
             continue
           desc = arg_info["desc"]
           arg_type = arg_info["type"]
           arg_default_value = arg_info["default"]
+          input_data = None
           if arg_default_value is None or isinstance(arg_type, str):
-            custom_server_args.update({arg_name: st.text_input("--" + arg_name, value=arg_default_value, help=desc)})
+            input_data = st.text_input(
+                "--" + arg_name, value=arg_default_value, help=desc)
+            custom_server_args.update({arg_name: input_data})
           elif isinstance(arg_type, int) or arg_type == int:
-            custom_server_args.update({arg_name: st.number_input(
-                "--" + arg_name, value=int(arg_default_value), help=desc)})
+            input_data = st.number_input("--" + arg_name, value=int(arg_default_value), help=desc)
+            custom_server_args.update({arg_name: input_data})
           elif isinstance(arg_type, bool) or arg_type == bool:
-            custom_server_args.update({arg_name: st.checkbox(
-                "--" + arg_name, value=bool(arg_default_value), help=desc)})
+            input_data = st.checkbox("--" + arg_name, value=bool(arg_default_value), help=desc)
+            custom_server_args.update({arg_name: input_data})
           elif isinstance(arg_type, float) or arg_type == float:
-            custom_server_args.update({arg_name: st.number_input(
-                "--" + arg_name, value=float(arg_default_value), min_value=0., max_value=1., step=0.01, help=desc)})
+            input_data = st.number_input("--" + arg_name, value=float(arg_default_value), min_value=0., max_value=1., step=0.01, help=desc)
+            custom_server_args.update({arg_name: input_data})
+          if required and not input_data:
+            st.error(f"Please input `{arg_name}`, see (ⓘ) for information.")
+            st.stop()
+            
       if required_args:
         st.markdown("**Required args**")
-        create_args_input(required_args)
+        create_args_input(required_args, required=True)
       st.markdown("**Optional args**")
       create_args_input(optional_args)
       additional_args = st.text_area(

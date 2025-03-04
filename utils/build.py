@@ -32,6 +32,10 @@ def build_model_upload(
   dockerfile = os.path.join(output_dir, "Dockerfile")
   framework_info = FI[inference_framework]
   
+  # Overwrite by llamacpp files
+  if inference_framework == "llamacpp":
+    shutil.copytree(os.path.join(template_code_dir, "../llamacpp"), output_dir,
+                    ignore=ignore_patterns, dirs_exist_ok=True)
   
   with open(cf_yaml, "w") as file:
     yaml.dump(config_yaml_data, file, default_flow_style=False, sort_keys=False)
