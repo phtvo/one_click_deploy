@@ -132,14 +132,20 @@ def display():
 
     # Inference compute info
     st.markdown("#### Inference Compute Info")
-    cpu_limit = st.slider("CPU Limit", min_value=1, max_value=8, value=2)
+    cpu_limit = st.slider("CPU Limit", min_value=1, max_value=16, value=2)
     cpu_memory = st.slider("CPU Memory", min_value=1, max_value=32, value=8)
     cpu_memory = f"{cpu_memory}Gi"
-    num_accelerators = st.slider("Num Accelerators", min_value=0, max_value=4, value=1)
-    gpus = ["NVIDIA-A10G", "NVIDIA-L4", "NVIDIA-T4", "NVIDIA-L40S", "NVIDIA-A100", "NVIDIA-H100",]
-    accelerator_type = st.multiselect("Accelerator Type", options=gpus, default=gpus)
-    accelerator_memory = st.number_input("Accelerator Memory",  value=24)
-    accelerator_memory = f"{accelerator_memory}Gi"
+    use_cpu_only = st.toggle("Use CPU only", value=False)
+    if use_cpu_only:
+      num_accelerators = 0
+      accelerator_type = None
+      accelerator_memory = None
+    else:
+      num_accelerators = st.slider("Num Accelerators", min_value=0, max_value=4, value=1)
+      gpus = ["NVIDIA-A10G", "NVIDIA-L4", "NVIDIA-T4", "NVIDIA-L40S", "NVIDIA-A100", "NVIDIA-H100",]
+      accelerator_type = st.multiselect("Accelerator Type", options=gpus, default=gpus)
+      accelerator_memory = st.number_input("Accelerator Memory",  value=24)
+      accelerator_memory = f"{accelerator_memory}Gi"
 
     clarifai_threads = st.slider("Clarifai runner threads", min_value=1, max_value=128, value=16)
     # Checkpoint settings (optional)
@@ -260,7 +266,6 @@ def display():
         output_dir=generated_model_dir,
         clarifai_threads=clarifai_threads
       )
-      st.info(f"Model code was generated at '{generated_model_dir}'")
       
       builder = ModelBuilder(generated_model_dir)
       model_note = create_model_note(model_type_id, hf_model_id=hf_model_id, model_name=valid_model_id, model_url=builder.model_url, model_out_dir=generated_model_dir)
@@ -271,10 +276,15 @@ def display():
           run_subprocess(["clarifai", "model", "upload", "--model_path", generated_model_dir, "--skip_dockerfile"],)
           st.success(f"Uploaded model, please see model at {builder.model_url} or use this url for inference in SDK.")
       elif test_locally_btn:
+        if infer_framework == "llamacpp":
+          st.error("Not support testing llamacpp with virtual env.")
+          st.stop()
         with st.spinner("Testing model locally..."):
           cmds = [
             "clarifai", "model", "test-locally", "--model_path", str(generated_model_dir), "--keep_env", "--mode", "env"]
           run_subprocess(cmds)
+      else:
+        st.info(f"Model code was generated at '{generated_model_dir}'")
       
       #st.markdown("`Model Note:`")
       with st.expander("`Model Note`", expanded=True):

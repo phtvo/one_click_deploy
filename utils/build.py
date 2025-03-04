@@ -32,6 +32,7 @@ def build_model_upload(
   dockerfile = os.path.join(output_dir, "Dockerfile")
   framework_info = FI[inference_framework]
   
+  use_cpu_only = config_yaml_data["inference_compute_info"]["num_accelerators"] < 1
   # Overwrite by llamacpp files
   if inference_framework == "llamacpp":
     shutil.copytree(os.path.join(template_code_dir, "../llamacpp"), output_dir,
@@ -53,6 +54,12 @@ def build_model_upload(
     dockerfile_default = dockerfile_default.replace("${CLARIFAI_NUM_THREADS}", str(clarifai_threads))
     download_cmd_docker = """#RUN ["python", "-m", "clarifai.cli", "model", "download-checkpoints", """
     dockerfile_default = dockerfile_default.replace(download_cmd_docker, download_cmd_docker[1:])
+    
+    if inference_framework == "llamacpp" and use_cpu_only:
+      base_llamacpp_docker = "FROM ghcr.io/ggml-org/llama.cpp:server-cuda"
+      base_llamacpp_docker_cpu = "FROM ghcr.io/ggml-org/llama.cpp:server"
+      dockerfile_default = dockerfile_default.replace(
+          base_llamacpp_docker, base_llamacpp_docker_cpu)
     f.write(dockerfile_default)
   
   with open(model_py, "r") as f:
