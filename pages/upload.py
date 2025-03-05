@@ -209,7 +209,7 @@ def display():
           arg_type = arg_info["type"]
           arg_default_value = arg_info["default"]
           input_data = None
-          if arg_default_value is None or isinstance(arg_type, str):
+          if arg_default_value is None or arg_type == str:
             input_data = st.text_input(
                 "--" + arg_name, value=arg_default_value, help=desc)
             custom_server_args.update({arg_name: input_data})
