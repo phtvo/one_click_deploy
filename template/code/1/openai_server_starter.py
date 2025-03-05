@@ -445,16 +445,21 @@ class OpenAI_APIServer:
         additional_list_args (List[str], optional): additional args to run subprocess cmd e.g. ["--arg-name", "arg value"]. See more at [github](https://github.com/ggml-org/llama.cpp/tree/master/examples/server). Defaults to [].
 
     Returns:
-        OpoenAI_APISever
+        OpenAI_APISever
     """
+    from huggingface_hub import hf_hub_download
+
+    checkpoint_path = hf_hub_download(
+        repo_id=checkpoints, filename=model)
+
     cmds = [
         'llama-server',
 
         '--model',
-        str(model),
+        str(checkpoint_path),
 
-        '--hf-repo',
-        str(checkpoints),
+        # '--hf-repo',
+        # str(checkpoints),
 
         '--chat-template',
         str(chat_template),
