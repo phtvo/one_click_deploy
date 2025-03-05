@@ -49,7 +49,8 @@ class OpenAI_APIServer:
     self.server_started_event = threading.Event()
     self.process = None
     self.backend = None
-
+    self.server_thread = None
+    
   def __del__(self, *exc):
     # This is important
     # close the server when exit the program
@@ -57,10 +58,13 @@ class OpenAI_APIServer:
 
   def close(self):
     if self.process:
+      self.process.terminate()
       try:
         kill_process_tree(self.process.pid)
       except:
-        self.process.kill()
+        self.process.terminate()
+    if self.server_thread:
+      self.server_thread.join()
 
   def wait_for_startup(self):
     self.server_started_event.wait()
@@ -89,9 +93,9 @@ class OpenAI_APIServer:
   def start_server_thread(self, cmds: str):
     try:
       # Start the  server in a separate thread
-      server_thread = threading.Thread(
-          target=self._start_server, args=(cmds,))
-      server_thread.start()
+      self.server_thread = threading.Thread(
+          target=self._start_server, args=(cmds,), daemon=None)
+      self.server_thread.start()
 
       # Wait for the server to start
       self.wait_for_startup()
