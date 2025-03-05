@@ -74,13 +74,13 @@ class OpenAI_APIServer:
           text=True,
       )
       for line in self.process.stderr:
-        logger.info(line.strip())
+        logger.info("Server Log:  " + line.strip())
         if f" running on http://{self.host}:" in line.strip() or (
             self.backend == "vllm" and "application startup complete" in line.strip().lower()
         ) or (self.backend == "llamacpp" and "waiting for new tasks" in line.strip().lower()):
           time.sleep(3)
           self.server_started_event.set()
-          break
+          # break
     except Exception as e:
       if self.process:
         self.process.terminate()

@@ -21,7 +21,12 @@ FRAMEWORK_INFO = {
     "supported_models": "https://docs.vllm.ai/en/latest/models/supported_models.html",
     "requirements": [
       "vllm==0.7.3",
-      "transformers==4.49.0"
+      "transformers==4.49.0",
+      "backoff==2.2.1",
+      "peft==0.13.2",
+      "soundfile==0.13.1",
+      "scipy==1.15.2",
+      "librosa",
       ],
     "init_args": inspect_function_args(OpenAI_APIServer.from_vllm_backend, drop_keys=["checkpoints"]),
     "init": "OpenAI_APIServer.from_vllm_backend"

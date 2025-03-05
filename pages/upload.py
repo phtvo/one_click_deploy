@@ -118,7 +118,10 @@ def display():
     if not app_id:
       st.error("Please input this app_id")
     model_type_id = st.selectbox("Select model type", ["text-to-text", "multimodal-to-text"])
-
+    if model_type_id == "multimodal-to-text":
+      input_modalities = st.multiselect("Select data types for input", options=["image", "audio", "video"], default="image")
+    else:
+      input_modalities = ["text"]
     # Build info
     st.markdown("#### Build Info")
     python_version = st.selectbox(
@@ -147,7 +150,7 @@ def display():
       accelerator_memory = st.number_input("Accelerator Memory",  value=24)
       accelerator_memory = f"{accelerator_memory}Gi"
 
-    clarifai_threads = st.slider("Clarifai runner threads", min_value=1, max_value=128, value=16)
+    clarifai_threads = st.slider("Clarifai runner threads", min_value=1, max_value=128, value=32)
     # Checkpoint settings (optional)
     download_checkpoints = st.toggle("Enable cache checkpoints", value=False)
     if download_checkpoints:
@@ -184,7 +187,7 @@ def display():
       
   with model_server_col:
     st.markdown("### Inference Settings")
-    infer_framework = st.selectbox("Select inference framework", FI)
+    infer_framework = st.selectbox("Select inference framework", FI, index=1)
     fi = FI[infer_framework]
     st.markdown(
         f"""
@@ -198,7 +201,7 @@ def display():
     default_server_args = fi["init_args"]
     with st.expander("#### Server args"):
       st.markdown("These args are used to start up OpenAI compatible server, please refer to framework page for details")
-      custom_server_args = {}
+      custom_server_args = {"modalities": input_modalities}
       required_args = default_server_args["required_args"]
       optional_args = default_server_args["optional_args"]
       def create_args_input(data_args, required=False):
