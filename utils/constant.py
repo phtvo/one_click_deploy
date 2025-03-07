@@ -27,6 +27,7 @@ FRAMEWORK_INFO = {
       "soundfile==0.13.1",
       "scipy==1.15.2",
       "librosa",
+      "decord"
       ],
     "init_args": inspect_function_args(OpenAI_APIServer.from_vllm_backend, drop_keys=["checkpoints"]),
     "init": "OpenAI_APIServer.from_vllm_backend"
