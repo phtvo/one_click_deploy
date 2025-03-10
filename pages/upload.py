@@ -28,7 +28,7 @@ def create_model_note(model_type, model_name, hf_model_id, model_url, model_out_
   # Create cmd
   cmds = []
   serverargs = deepcopy(server_args)
-  input_data_type = serverargs.pop("modalities")
+  input_data_type = serverargs.pop("modalities") + ["text"]
   for k, v in serverargs.items():
     if v is not None:
       if k == "additional_list_args":
