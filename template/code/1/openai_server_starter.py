@@ -50,7 +50,7 @@ class OpenAI_APIServer:
     self.process = None
     self.backend = None
     self.server_thread = None
-    
+
   def __del__(self, *exc):
     # This is important
     # close the server when exit the program
@@ -71,17 +71,24 @@ class OpenAI_APIServer:
 
   def _start_server(self, cmds):
     try:
+      env = os.environ.copy()
+      env["VLLM_USAGE_SOURCE"] = "production-docker-image"
       self.process = subprocess.Popen(
           cmds,
           stdout=subprocess.PIPE,
-          stderr=subprocess.PIPE,
+          stderr=subprocess.STDOUT,
           text=True,
+
       )
-      for line in self.process.stderr:
+      for line in self.process.stdout:
         logger.info("Server Log:  " + line.strip())
-        if f" running on http://{self.host}:" in line.strip() or (
-            self.backend == "vllm" and "application startup complete" in line.strip().lower()
-        ) or (self.backend == "llamacpp" and "waiting for new tasks" in line.strip().lower()):
+        if (f" running on http://{self.host}:" in line.strip()
+            ) or (
+            self.backend == "vllm" and (
+                "application startup complete" in line.strip().lower() or "vllm api server on" in line.strip().lower())
+        ) or (
+            self.backend == "llamacpp" and "waiting for new tasks" in line.strip().lower()
+        ):
           time.sleep(3)
           self.server_started_event.set()
           # break
@@ -107,9 +114,9 @@ class OpenAI_APIServer:
       cls,
       checkpoints: str,
       backend: str = "turbomind",
-      cache_max_entry_count=0.8,
+      cache_max_entry_count=0.9,
       tensor_parallel_size=1,
-      max_prefill_token_num=8192,
+      max_prefill_token_num=4096,
       dtype='float16',
       quantization_format: str = None,
       quant_policy: int = 0,
@@ -125,9 +132,9 @@ class OpenAI_APIServer:
     Args:
         checkpoints (str): model id or path
         backend (str, optional): turbomind or pytorch. Defaults to "turbomind".
-        cache_max_entry_count (float, optional): reserved mem for cache. Defaults to 0.8.
+        cache_max_entry_count (float, optional): reserved mem for cache. Defaults to 0.9.
         tensor_parallel_size (int, optional): n gpus. Defaults to 1.
-        max_prefill_token_num (int, optional): prefill token, the higher the more GPU mems are used. Defaults to 8192.
+        max_prefill_token_num (int, optional): prefill token, the higher the more GPU mems are used. Defaults to 4096.
         dtype (str, optional): dtype. Defaults to 'float16'.
         quantization_format (str, optional): quantization {awq, gptq}. Defaults to None.
         quant_policy (int, optional): KV cache quant policty {0, 4, 8} bits, 0 means not using quantization. Defaults to 0.
