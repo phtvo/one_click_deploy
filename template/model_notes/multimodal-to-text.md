@@ -2,6 +2,10 @@
 
 [Model source](https://huggingface.co/{hf_model_id})
 
+Model is serving with `{inference_framework}`.
+
+Input data type: `{input_data_type}`
+
 # Usage
 
 ## Set your PAT
@@ -38,4 +42,10 @@ results = model.generate([input_data], inference_params=inference_params)
 for res in results:
   if res.status.code == status_code_pb2.SUCCESS:
     print(res.outputs[0].data.text.raw, end='', flush=True)
+```
+
+# Server extra args
+
+```
+{server_args}
 ```

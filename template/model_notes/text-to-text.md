@@ -2,6 +2,10 @@
 
 [Model source](https://huggingface.co/{hf_model_id})
 
+Model is serving with `{inference_framework}`.
+
+Input data type: `{input_data_type}`
+
 # Usage
 
 ## Set your PAT
@@ -24,11 +28,17 @@ from clarifai_grpc.grpc.api.status import status_code_pb2
 
 
 model = Model(url="{model_url}")
-prompt = "What’s the future of AI?"
+prompt = "What's the future of AI?"
 
 results = model.generate_by_bytes(prompt.encode("utf-8"), "text")
 
 for res in results:
   if res.status.code == status_code_pb2.SUCCESS:
     print(res.outputs[0].data.text.raw, end='', flush=True)
+```
+
+# Server extra args
+
+```
+{server_args}
 ```

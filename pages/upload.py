@@ -1,8 +1,10 @@
+from copy import deepcopy
 import os
 import logging
 import queue
 import subprocess
 import sys
+from typing import Any, Dict
 import streamlit as st
 st.set_page_config(layout="wide")
 
@@ -17,15 +19,36 @@ import shlex
 
 PYTHON_EXEC = sys.executable
 
-def create_model_note(model_type, model_name, hf_model_id, model_url, model_out_dir):
+def create_model_note(model_type, model_name, hf_model_id, model_url, model_out_dir, inference_framework:dict, server_args:Dict[str, Any]):
   root = os.path.dirname(__file__)
   note_dir = os.path.join(root, "../template/model_notes")
   with open(os.path.join(note_dir, f"{model_type}.md"), "r") as f:
     note_data = f.read()
+  
+  # Create cmd
+  cmds = []
+  serverargs = deepcopy(server_args)
+  input_data_type = serverargs.pop("modalities")
+  for k, v in serverargs.items():
+    if v is not None:
+      if k == "additional_list_args":
+        for each in v:  
+          cmds.extend([str(each)])
+      elif k in ["checkpoints"]:
+        continue
+      else:
+        if not k.startswith("--"):
+          k = "--" + k
+        cmds.extend([str(k), str(v)])
+  cmds = " ".join(cmds)
+  
   new_note = note_data.format(
     model_name=model_name,
     hf_model_id=hf_model_id,
-    model_url=model_url
+    model_url=model_url,
+    inference_framework=inference_framework,
+    input_data_type=input_data_type,
+    server_args=cmds
   )
   with open(os.path.join(model_out_dir, "MODEL_NOTES.MD"), "w") as f:
     f.write(new_note)
@@ -271,7 +294,11 @@ def display():
       )
       
       builder = ModelBuilder(generated_model_dir)
-      model_note = create_model_note(model_type_id, hf_model_id=hf_model_id, model_name=valid_model_id, model_url=builder.model_url, model_out_dir=generated_model_dir)
+      model_note = create_model_note(
+        model_type_id, hf_model_id=hf_model_id, model_name=valid_model_id, 
+        model_url=builder.model_url, model_out_dir=generated_model_dir, 
+        inference_framework=infer_framework, server_args=custom_server_args
+      )
       
       if upload_btn:
         with st.spinner("Uploading model.."):
@@ -291,7 +318,7 @@ def display():
       
       #st.markdown("`Model Note:`")
       with st.expander("`Model Note`", expanded=True):
-        st.text_area("Copy this for model note", model_note)        
+        st.text_area("Copy this for model note", model_note, height=1000)        
 
 
 if __name__ == "__main__":
