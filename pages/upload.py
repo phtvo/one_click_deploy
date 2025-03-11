@@ -28,7 +28,7 @@ def create_model_note(model_type, model_name, hf_model_id, model_url, model_out_
   # Create cmd
   cmds = []
   serverargs = deepcopy(server_args)
-  input_data_type = serverargs.pop("modalities") + ["text"]
+  input_data_type = list(set(serverargs.pop("modalities") + ["text"]))
   for k, v in serverargs.items():
     if v is not None:
       if k == "additional_list_args":
@@ -158,8 +158,8 @@ def display():
 
     # Inference compute info
     st.markdown("#### Inference Compute Info")
-    cpu_limit = st.slider("CPU Limit", min_value=1, max_value=16, value=2)
-    cpu_memory = st.slider("CPU Memory", min_value=1, max_value=32, value=8)
+    cpu_limit = st.slider("CPU Limit", min_value=1, max_value=32, value=2)
+    cpu_memory = st.slider("CPU Memory", min_value=1, max_value=128, value=8)
     cpu_memory = f"{cpu_memory}Gi"
     use_cpu_only = st.toggle("Use CPU only", value=False)
     if use_cpu_only:
