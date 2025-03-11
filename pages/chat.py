@@ -27,6 +27,32 @@ def display():
   if not os.environ.get("CLARIFAI_PAT"):
     st.error("Please insert your PAT")
     st.stop()
+  
+  # Init model
+  if not "model_url" in st.session_state or st.session_state["model_url"] != model_url:
+    st.session_state["model_url"] = model_url
+  model = Model(url=st.session_state["model_url"], pat=os.environ.get(
+      "CLARIFAI_PAT", "xx"), base_url=base_url)
+  print("Model: ", st.session_state["model_url"])
+  print("Model id:", model.id)
+  st.subheader(f"Model ID: `{str(model.id)}`")
+    
+  with st.sidebar.expander("`Runner selector`"):
+    from clarifai.client.deployment import Deployment
+    from clarifai.client.nodepool import Nodepool
+    user_id = st.text_input("user_id", model.user_app_id.user_id)
+    deployment_id = st.text_input("deployment_id", os.environ.get("CLARIFAI_DEPLOYMENT_ID"))
+    compute_cluster_id = st.text_input(
+        "compute_cluster_id", os.environ.get("CLARIFAI_COMPUTE_CLUSTER_ID"))
+    nodepool_id = st.text_input(
+        "nodepool_id", os.environ.get("CLARIFAI_NODEPOOL_ID"))
+    runner_selector = None
+    if deployment_id:
+      runner_selector = Deployment.get_runner_selector(
+          user_id=user_id, deployment_id=deployment_id)
+    elif compute_cluster_id and nodepool_id:
+      runner_selector = Nodepool.get_runner_selector(
+          user_id=user_id, compute_cluster_id=compute_cluster_id, nodepool_id=nodepool_id)
 
   is_generate = st.sidebar.toggle("Stream response", value=True)
 
@@ -52,11 +78,6 @@ def display():
   if reset_btn:
     st.session_state.pop("messages", "")
 
-  # Init model
-  if not "model_url" in st.session_state or st.session_state["model_url"] != model_url:
-    st.session_state["model_url"] = model_url
-  model = Model(url=st.session_state["model_url"], pat=os.environ.get("CLARIFAI_PAT", "xx"), base_url=base_url)
-  print("Model: ", st.session_state["model_url"])
   # system prompt
   if "system_prompt" not in st.session_state:
     st.session_state["system_prompt"] = system_prompt
@@ -69,8 +90,6 @@ def display():
   if st.session_state["system_prompt"] != system_prompt:
     st.session_state["messages"][0] = {"role": "system", "content": system_prompt}
     st.session_state["system_prompt"] = system_prompt
-
-  chat_col, proto_col = st.columns([3, 2])
   
   # Display chat messages from session state
   for msg in st.session_state["messages"]:
@@ -95,7 +114,7 @@ def display():
       if is_generate:
         with st.spinner("Loading the model..."):
           start_time = time.time()
-          response_generator = model.generate([input_proto], inference_params=inference_kwargs)
+          response_generator = model.generate([input_proto], runner_selector=runner_selector, inference_params=inference_kwargs)
           with st.chat_message("assistant"):
             response_placeholder = st.empty()
             model_response_text = ""
@@ -116,7 +135,7 @@ def display():
         st.markdown(f"**Token Throughput:** {throughput:.2f} tokens/sec. Output tokens: {token_count}")
       else:
         with st.spinner("Loading the model..."):
-          response = model.predict([input_proto], inference_params=inference_kwargs)
+          response = model.predict([input_proto], runner_selector=runner_selector, inference_params=inference_kwargs)
           with st.chat_message("assistant"):
             if model_response_text.status.code == status_code_pb2.SUCCESS:
               model_response_text = response.outputs[0].data.text.raw
