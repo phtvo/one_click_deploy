@@ -509,16 +509,16 @@ class OpenAI_APIServer:
 
     ]
 
-    if tensor_split is not None:
+    if tensor_split:
       cmds += ['--tensor_split', str(tensor_split),]
 
-    if threads_batch is not None:
+    if threads_batch:
       cmds += ['--threads-batch', str(threads_batch),]
 
-    if threads is not None:
+    if threads:
       cmds += ['--threads', str(threads),]
 
-    if numa is not None:
+    if numa:
       cmds += ['--numa', str(numa)]
 
     if flash_attn is not None:

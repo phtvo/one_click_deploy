@@ -73,13 +73,13 @@ def proto_to_chat(inp: resources_pb2.Input, modalities=["audio", "image", "video
   # extract role and content in text if possible
   try:
     prompt = json.loads(prompt)
-    role = prompt.get("role", USER).lower()
+    role = str(prompt.get("role", USER)).lower()
     prompt = prompt.get("content", "")
   except:
     role = USER
   if role != SYSTEM:
     content = [
-        {'type': 'text', 'text': prompt},
+        {'type': 'text', 'text': str(prompt)},
     ]
 
     def add_modality(modality_type, process_func):
@@ -108,7 +108,7 @@ def proto_to_chat(inp: resources_pb2.Input, modalities=["audio", "image", "video
     }
 
   elif prompt:
-    msg = {"role": role, "content": prompt}
+    msg = {"role": role, "content": str(prompt)}
   else:
     msg = None
 

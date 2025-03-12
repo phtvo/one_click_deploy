@@ -57,6 +57,8 @@ ENV PYTHONPATH=${PYTHONPATH}:/home/nonroot/main \
     CLARIFAI_API_BASE=${CLARIFAI_API_BASE:-https://api.clarifai.com} \
     CLARIFAI_NUM_THREADS=16
 
+
+RUN ln -s /usr/bin/python3 /usr/bin/python
 # Finally run the clarifai entrypoint to start the runner loop and local dev server.
 # Note(zeiler): we may want to make this a clarifai CLI call.
 ENTRYPOINT ["python3", "-m", "clarifai.runners.server"]
