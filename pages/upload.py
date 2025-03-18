@@ -2,6 +2,7 @@ from copy import deepcopy
 import os
 import logging
 import queue
+import re
 import subprocess
 import sys
 from typing import Any, Dict
@@ -13,6 +14,7 @@ from clarifai.client import Model, Inputs
 from clarifai_grpc.grpc.api import resources_pb2
 from utils.constant import FRAMEWORK_INFO as FI
 from utils.build import build_model_upload
+from utils.patch_infer_parms import patch_infer_params
 from clarifai.runners.models.model_builder import ModelBuilder
 from clarifai.utils.logging import logger
 import shlex
@@ -55,6 +57,11 @@ def create_model_note(model_type, model_name, hf_model_id, model_url, model_out_
   
   return new_note
 
+
+def extract_version(text):
+    match = re.search(r"version:\s*([\w\d]+)", text)
+    return match.group(1) if match else None
+
 def run_subprocess(command):
     env_vars = os.environ.copy()
     process = subprocess.Popen(
@@ -78,13 +85,20 @@ def run_subprocess(command):
       log_queue.put(line.strip())
       log = "\n".join(list(log_queue.queue))
       st_log.code(log)
+    
     process.stdout.close()
     process.wait()
     process.kill()
+    
+    # get model version at last log line
+    model_version = extract_version(log)
+    
     if process.returncode != 0:  # Non-zero exit code = error
-      error_msg = process.stderr.read().strip() or f"Command failed with exit code {process.returncode}"
+      error_msg = f"Command failed with exit code {process.returncode}"
       error_area.error(error_msg)
       st.stop()
+    
+    return model_version
 
 st_log_title = st.empty()
 st_log = st.empty()
@@ -114,6 +128,7 @@ def display():
     
   # Main input section
   upload_config_col, _, model_server_col, _,  control_col = st.columns([6, 1, 6, 1, 6])
+  #upload_config_col, _, model_server_col, _,  params_col, _, control_col = st.columns([6, 1, 6, 1, 6, 1, 6])
   
   with upload_config_col:
     #
@@ -303,8 +318,38 @@ def display():
       if upload_btn:
         with st.spinner("Uploading model.."):
           #upload_model(generated_model_dir, False, False)
-          run_subprocess(["clarifai", "model", "upload", "--model_path", generated_model_dir, "--skip_dockerfile"],)
-          st.success(f"Uploaded model, please see model at {builder.model_url} or use this url for inference in SDK.")
+          model_version = run_subprocess(["clarifai", "model", "upload", "--model_path", generated_model_dir, "--skip_dockerfile"],)
+          if model_version:
+            st.success(f"Uploaded model, please see model at {builder.model_url} version **{model_version}** or use this url for inference in SDK.")
+            
+            # hardcoded params
+            infer_params = [
+                {
+                    "path": "max_tokens",
+                    "description": "The maximum number of tokens to generate. Shorter token lengths will provide faster performance.",
+                    "field_type": 3,
+                    "default_value": 512
+                },
+                {
+                    "path": "temperature",
+                    "description": "A decimal number that determines the degree of randomness in the response",
+                    "field_type": 3,
+                    "default_value": 0.7
+                },
+                {
+                    "path": "top_p",
+                    "description": "An alternative to sampling with temperature, where the model considers the results of the tokens with top_p probability mass.",
+                    "field_type": 3,
+                    "default_value": 0.95
+                }
+            ]
+            
+            patch_infer_params(
+              builder.model_proto,
+              version_id=model_version,
+              infer_params=infer_params
+            )
+          
       elif test_locally_btn:
         if infer_framework == "llamacpp":
           st.error("Not support testing llamacpp with virtual env.")
