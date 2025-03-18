@@ -75,8 +75,10 @@ def proto_to_chat(inp: resources_pb2.Input, modalities=["audio", "image", "video
     prompt = json.loads(prompt)
     role = str(prompt.get("role", USER)).lower()
     prompt = prompt.get("content", "")
+  # otherwise default role of current prompt is user
   except:
     role = USER
+  
   if role != SYSTEM:
     content = [
         {'type': 'text', 'text': str(prompt)},
@@ -84,15 +86,16 @@ def proto_to_chat(inp: resources_pb2.Input, modalities=["audio", "image", "video
 
     def add_modality(modality_type, process_func):
       logger.debug("Client: Parsing " + modality_type + " using", process_func)
-      chat_data = process_func(getattr(inp.data, modality_type))
       _cont = []
+      chat_data = process_func(getattr(inp.data, modality_type))
       if chat_data:
         _cont.append(chat_data)
-        # each turn could have more than 1 data
-        for each_part in inp.data.parts:
-          sub_chat_data = process_func(getattr(each_part.data, modality_type))
-          if sub_chat_data:
-            _cont.append(sub_chat_data)
+      # each turn could have more than 1 data
+      for each_part in inp.data.parts:
+        sub_chat_data = process_func(getattr(each_part.data, modality_type))
+        if sub_chat_data:
+          _cont.append(sub_chat_data)
+          
       content.extend(_cont)
       logger.debug(f"Client     * {len(_cont)} {modality_type}(s)")
 
@@ -119,10 +122,12 @@ def parse_request(request: service_pb2.PostModelOutputsRequest, modalities=["aud
   inference_params = get_inference_params(request)
   logger.info(f"Client: inference_params: {inference_params}")
   temperature = inference_params.pop("temperature", 0.7)
-  max_tokens = inference_params.pop("max_tokens", 256)
+  max_tokens = int(inference_params.pop("max_tokens", 256))
   top_p = inference_params.pop("top_p", .95)
+  
   _ = inference_params.pop("stream", None)
   chat_history = inference_params.pop("chat_history", False)
+  print("chat_history:", chat_history)
 
   batch_messages = []
   try:
@@ -158,6 +163,7 @@ class OpenAIWrapper():
   def __init__(self, client: OpenAI, modalities=["audio", "image", "video"], **kwargs):
     self.client = client
     models = self.client.models.list()
+    logger.info(f"Client: model list -- {models}")
     self.model_id = models.data[0].id
     self.modalities = modalities
 
