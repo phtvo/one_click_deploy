@@ -58,7 +58,6 @@ class OpenAI_APIServer:
 
   def close(self):
     if self.process:
-      self.process.terminate()
       try:
         kill_process_tree(self.process.pid)
       except:
@@ -68,6 +67,18 @@ class OpenAI_APIServer:
 
   def wait_for_startup(self):
     self.server_started_event.wait()
+
+  def validate_if_server_start(self, line: str):
+    line_lower = line.lower()
+    if self.backend in ["vllm", "sglang", "lmdeploy"]:
+      if self.backend == "vllm":
+        return "application startup complete" in line_lower or "vllm api server on" in line_lower
+      else:
+        return f" running on http://{self.host}:" in line.strip()
+    elif self.backend == "llamacpp":
+      return "waiting for new tasks" in line_lower
+    elif self.backend == "tgi":
+      return "Connected" in line.strip()
 
   def _start_server(self, cmds):
     try:
@@ -82,14 +93,7 @@ class OpenAI_APIServer:
       )
       for line in self.process.stdout:
         logger.info("Server Log:  " + line.strip())
-        if (f" running on http://{self.host}:" in line.strip()
-            ) or (
-            self.backend == "vllm" and (
-                "application startup complete" in line.strip().lower() or "vllm api server on" in line.strip().lower())
-        ) or (
-            self.backend == "llamacpp" and "waiting for new tasks" in line.strip().lower()
-        ):
-          time.sleep(3)
+        if self.validate_if_server_start(line):
           self.server_started_event.set()
           # break
     except Exception as e:
@@ -185,7 +189,7 @@ class OpenAI_APIServer:
       cmds += ['--max-prefill-token-num', str(max_prefill_token_num)]
 
     cmds += additional_list_args
-    print(f"CMDs to run lmdeploy server: {cmds}")
+    print("CMDS to run `lmdeploy` server: ", " ".join(cmds), "\n")
 
     _self = cls()
 
@@ -382,7 +386,7 @@ class OpenAI_APIServer:
     if additional_list_args:
       cmds += additional_list_args
 
-    print("CMDS to run sglang server: ", cmds)
+    print("CMDS to run `sglang` server: ", " ".join(cmds), "\n")
     _self = cls()
 
     _self.host = host
@@ -404,7 +408,7 @@ class OpenAI_APIServer:
       cls,
       checkpoints,
       model,
-      chat_template: str = "chatml",
+      chat_template: str = None,
       n_gpu_layers: int = 0,
       main_gpu: int = 0,
       tensor_split: float = None,
@@ -468,9 +472,6 @@ class OpenAI_APIServer:
         # '--hf-repo',
         # str(checkpoints),
 
-        '--chat-template',
-        str(chat_template),
-
         '--n-gpu-layers',
         str(n_gpu_layers),
 
@@ -527,19 +528,84 @@ class OpenAI_APIServer:
     if no_perf is not None:
       cmds += ['--no-perf']
 
+    if chat_template is not None:
+      cmds += ['--chat-template', str(chat_template),]
+
     if no_kv_offload is not None:
       cmds += ['--no-kv-offload']
 
     if additional_list_args != []:
       cmds += additional_list_args
 
-    print("CMDS to run `llamacpp` server: ", cmds)
+    print("CMDS to run `llamacpp` server: ", " ".join(cmds), "\n")
 
     _self = cls()
 
     _self.host = host
     _self.port = port
     _self.backend = "llamacpp"
+    _self.start_server_thread(cmds)
+    import time
+    time.sleep(5)
+
+    return _self
+
+  @classmethod
+  def from_tgi_backend(
+      cls,
+      checkpoints,
+      port=23333,
+      hostname="0.0.0.0",
+      hf_token=None,
+      additional_list_args: List[str] = []
+  ):
+    """Start TGI OpenAI server
+
+    Args:
+        checkpoints (str): model id or path.
+        port(int, optional): Serving port. Defaults to 23333.
+        host(str, optional): Serving host name. Defaults to "localhost".
+        additional_list_args (List[str], optional): additional args to run subprocess cmd e.g. ["--arg-name", "arg value"]. See more at [github](https://huggingface.co/docs/text-generation-inference/reference/launcher). Defaults to [].
+
+    Returns:
+        OpenAI_APISever
+    """
+    if hf_token:
+      os.environ["HF_TOKEN"] = str(hf_token)
+    os.environ["RUST_BACKTRACE"] = "full"
+    os.environ["METRICS_ADDRESS"] = "localhost:34388"
+
+    cmds = [
+        'text-generation-launcher',
+
+        '--model-id',
+        str(checkpoints),
+
+        '--port',
+        str(port),
+
+        '--hostname',
+        str(hostname),
+
+        "--trust-remote-code",
+
+        "--usage-stats",
+        "off",
+
+        "-e"
+
+    ]
+
+    if additional_list_args != []:
+      cmds += additional_list_args
+
+    print("CMDS to run `tgi` server: ", " ".join(cmds), "\n")
+
+    _self = cls()
+
+    _self.host = hostname
+    _self.port = port
+    _self.backend = "tgi"
     _self.start_server_thread(cmds)
     import time
     time.sleep(5)
