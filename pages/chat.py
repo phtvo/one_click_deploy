@@ -12,6 +12,11 @@ st.set_page_config(layout="wide")
 from clarifai.client import Model
 from clarifai_grpc.grpc.api.status import status_code_pb2
 
+ALLOWED_IMAGES = [".png", ".jpg", ".webp", ".jpeg"]
+ALLOWED_AUDIOS = [".wav"]
+ALLLOWED_VIDEOS = [".mp4", ".mov"]
+ALLOWDED_FILES = ALLOWED_IMAGES + ALLOWED_AUDIOS + ALLLOWED_VIDEOS
+
 def display():
   st.title("Clarifai chat demo")
 
@@ -95,19 +100,56 @@ def display():
   for msg in st.session_state["messages"]:
     if msg["role"] != "system":
       with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
-
+        if isinstance(msg["content"], list):
+          for content in msg["content"]:
+            if content["type"] == "text":
+              st.markdown(content["text"])
+            elif content["type"] == "image_url":
+              st.image(content["image_url"]["url"])
+            elif content["type"] == "input_audio":
+              st.audio(content["input_audio"]["data"])
+            elif content["type"] == "video_url":
+              st.viddeo(content["video_url"]["url"])
+        else:
+          st.markdown(msg["content"])
+          
   # Input for user message
-  user_input = st.chat_input("Type your message...")
+  user_input = st.chat_input("Type your message...", file_type=ALLOWDED_FILES, accept_file=True)
   input_proto = None
   if user_input:
       # Append user message to chat history
-      st.session_state["messages"].append({"role": "user", "content": user_input})
+      user_messages = {"role": "user", "content": []}
       with st.chat_message("user"):
-          st.markdown(user_input)
+        if user_input.text:
+          user_messages["content"].append(
+              {"type": "text", "text": user_input.text}
+            )
+          st.markdown(user_input.text)
+        if user_input["files"]:
+          for each_file in user_input["files"]:
+            ext = "." + each_file.name.split(".")[-1].lower()
+            file_bytes = each_file.read()
+            if ext in ALLOWED_IMAGES:
+              user_messages["content"].append(
+                  {"type": "image_url", "image_url": {"url": file_bytes}}
+              )
+              st.image(file_bytes)
+            elif ext in ALLOWED_AUDIOS:
+              user_messages["content"].append(
+                  {"type": "input_audio", "input_audio": {"data": file_bytes}}
+              )
+              st.audio(file_bytes)
+            elif ext in ALLLOWED_VIDEOS:
+              user_messages["content"].append(
+                  {"type": "video_url", "video_url": {"url": file_bytes}}
+              )
+              st.video(file_bytes)
+              
+        st.session_state["messages"].append(user_messages)
+        
       # Stream assistant response and measure throughput
       input_proto = chat_history_to_input_proto(st.session_state["messages"])
-      print("HISTORY:\n", st.session_state["messages"])
+      #print("HISTORY:\n", st.session_state["messages"])
       #print(input_proto)
       print(inference_kwargs)
       model_response_text = ""
@@ -123,7 +165,6 @@ def display():
               if resp.status.code == status_code_pb2.SUCCESS:
                 word = resp.outputs[0].data.text.raw
                 model_response_text += word
-                print(word)
                 response_placeholder.markdown(model_response_text)
                 token_count += 1
               else:
