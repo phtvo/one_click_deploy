@@ -204,14 +204,15 @@ class OpenAI_APIServer:
   def from_vllm_backend(
       cls,
       checkpoints,
+      limit_mm_per_prompt:str='',
+      max_model_len: float = None,
+      gpu_memory_utilization: float = 0.9,
       dtype="auto",
       task="auto",
       kv_cache_dtype: str = "auto",
       tensor_parallel_size=1,
       chat_template: str = None,
-      gpu_memory_utilization: float = 0.8,
       cpu_offload_gb: float = 0.,
-      max_model_len: float = None,
       quantization: str = None,
       port=23333,
       host="localhost",
@@ -221,14 +222,15 @@ class OpenAI_APIServer:
 
     Args:
       checkpoints (str): model id or path
+      limit_mm_per_prompt (str, optional): For each multimodal plugin, limit how many input instances to allow for each prompt. Expects a comma-separated list of items, e.g.: image=16,video=2 allows a maximum of 16 images and 2 videos per prompt. Defaults to 1 for each modality.
+      max_model_len (float, optional):Model context length. If unspecified, will be automatically derived from the model config. Defaults to None.
+      gpu_memory_utilization (float, optional): The fraction of GPU memory to be used for the model executor, which can range from 0 to 1. For example, a value of 0.5 would imply 50% GPU memory utilization. If unspecified, will use the default value of 0.9. This is a per-instance limit, and only applies to the current vLLM instance.It does not matter if you have another vLLM instance running on the same GPU. For example, if you have two vLLM instances running on the same GPU, you can set the GPU memory utilization to 0.5 for each instance. Defaults to 0.9.
       dtype (str, optional): dtype. Defaults to "float16".
       task (str, optional): The task to use the model for. Each vLLM instance only supports one task, even if the same model can be used for multiple tasks. When the model only supports one task, "auto" can be used to select it; otherwise, you must specify explicitly which task to use. Choices {auto, generate, embedding, embed, classify, score, reward, transcription}. Defaults to "auto".
       kv_cache_dtype (str, optional): Data type for kv cache storage. If “auto”, will use model data type. CUDA 11.8+ supports fp8 (=fp8_e4m3) and fp8_e5m2. ROCm (AMD GPU) supports fp8 (=fp8_e4m3). Defaults to "auto".
       tensor_parallel_size (int, optional): n gpus. Defaults to 1.
       chat_template (str, optional): The file path to the chat template, or the template in single-line form for the specified model. Defaults to None.
-      gpu_memory_utilization (float, optional): The fraction of GPU memory to be used for the model executor, which can range from 0 to 1. For example, a value of 0.5 would imply 50% GPU memory utilization. If unspecified, will use the default value of 0.9. This is a per-instance limit, and only applies to the current vLLM instance.It does not matter if you have another vLLM instance running on the same GPU. For example, if you have two vLLM instances running on the same GPU, you can set the GPU memory utilization to 0.5 for each instance. Defaults to 0.8.
       cpu_offload_gb (float, optional): The space in GiB to offload to CPU, per GPU. Default is 0, which means no offloading. Intuitively, this argument can be seen as a virtual way to increase the GPU memory size. For example, if you have one 24 GB GPU and set this to 10, virtually you can think of it as a 34 GB GPU. Then you can load a 13B model with BF16 weight, which requires at least 26GB GPU memory. Note that this requires fast CPU-GPU interconnect, as part of the model is loaded from CPU memory to GPU memory on the fly in each model forward pass. Defaults to 0.
-      max_model_len (float, optional):Model context length. If unspecified, will be automatically derived from the model config. Defaults to None.
       quantization (str, optional): quantization format {aqlm,awq,deepspeedfp,tpu_int8,fp8,fbgemm_fp8,modelopt,marlin,gguf,gptq_marlin_24,gptq_marlin,awq_marlin,gptq,compressed-tensors,bitsandbytes,qqq,hqq,experts_int8,neuron_quant,ipex,quark,moe_wna16,None}. Defaults to None.
       port (int, optional): port. Defaults to 23333.
       host (str, optional): host name. Defaults to "localhost".
@@ -266,6 +268,8 @@ class OpenAI_APIServer:
       cmds += ['--chat-template', str(chat_template),]
     if max_model_len:
       cmds += ['--max-model-len', str(max_model_len),]
+    if limit_mm_per_prompt:
+      cmds += ['--limit-mm-per-prompt', str(limit_mm_per_prompt),]
 
     if additional_list_args != []:
       cmds += additional_list_args
