@@ -1,4 +1,5 @@
 from copy import deepcopy
+import io
 import os
 import logging
 import queue
@@ -6,6 +7,7 @@ import re
 import subprocess
 import sys
 from typing import Any, Dict
+import zipfile
 import streamlit as st
 st.set_page_config(layout="wide")
 
@@ -111,7 +113,6 @@ def display():
   with st.sidebar:
       base_url = st.text_input("Base URL", value=os.environ.get("CLARIFAI_API_BASE","https://api.clarifai.com"))
       pat = st.text_input("PAT", type="password")
-      output_folder = st.text_input("Path to save generated model upload folder", "./tmp/",)
   if base_url:
     os.environ["CLARIFAI_API_BASE"] = base_url
   if pat:
@@ -184,18 +185,26 @@ def display():
     else:
       num_accelerators = st.slider("Num Accelerators", min_value=0, max_value=4, value=1)
       gpus = ["NVIDIA-A10G", "NVIDIA-L4", "NVIDIA-T4", "NVIDIA-L40S", "NVIDIA-A100", "NVIDIA-H100",]
-      accelerator_type = st.multiselect("Accelerator Type", options=gpus, default=gpus)
-      accelerator_memory = st.number_input("Accelerator Memory",  value=24)
+      default_gpus = ["NVIDIA-A10G","NVIDIA-L40S", "NVIDIA-A100", "NVIDIA-H100",]
+      accelerator_type = st.multiselect("Accelerator Type", options=gpus, default=default_gpus)
+      accelerator_memory = st.number_input("Accelerator Memory",  value=22)
       accelerator_memory = f"{accelerator_memory}Gi"
 
     clarifai_threads = st.slider("Clarifai runner threads", min_value=1, max_value=128, value=32)
     # Checkpoint settings (optional)
     download_checkpoints = st.toggle("Enable cache checkpoints", value=False)
-    if download_checkpoints:
-        repo_id = hf_model_id
-        hf_token = st.text_input("HuggingFace Token", "", type="password")
-    else:
-        repo_id, hf_token = None, None
+    hf_token = st.text_input("HuggingFace Token", "", type="password", help="Provide HF token to access gated model or to cache checkpoints")
+    repo_id = None
+    when = None
+    # HF token is required to cache checkpoints
+    if download_checkpoints and not hf_token:
+      st.error("HuggingFace Token is required to cache checkpoints")
+    elif download_checkpoints and hf_token:
+      repo_id = hf_model_id
+      when = "build"
+    elif hf_token:
+      repo_id = hf_model_id
+      when = "runtime"
 
     yaml_config = {
       "model": {
@@ -215,14 +224,24 @@ def display():
           "accelerator_memory": accelerator_memory
       }
     }
-    if download_checkpoints:
+    if when:
       yaml_config["checkpoints"] = {
           "type": "huggingface",
           "repo_id": repo_id,
           "hf_token": hf_token,
-          "when": "build"
+          "when": when
       }
-      
+  
+  with st.sidebar:
+    if os.environ.get("PROD") == "1":
+      default_output_folder = '/tmp'
+    else:
+      default_output_folder = './tmp'
+    if user_id and app_id:
+      default_output_folder = os.path.join(default_output_folder, f"{user_id}__{app_id}")
+    output_folder = st.text_input(
+        "Path to save generated model upload folder", default_output_folder,)
+  
   with model_server_col:
     st.markdown("### Inference Settings")
     infer_framework = st.selectbox("Select inference framework", FI, index=1)
@@ -277,11 +296,11 @@ def display():
     if additional_args != "":
       print("additional_args: ", additional_args)
       custom_server_args.update(dict(additional_list_args=shlex.split(additional_args)))
-    custom_server_args.update(dict(checkpoints="build" if download_checkpoints else hf_model_id))
+    custom_server_args.update(dict(checkpoints=when if when else hf_model_id))
   
   with control_col:
     st.markdown("### Run")
-    generate_btn = st.button("Generate code only")
+    generate_btn = st.button("Generate and Download code.")
     upload_btn = st.button("Upload model")
     test_locally_btn = st.button("Test model locally")
     def validate_chat_template():
@@ -314,6 +333,45 @@ def display():
         model_url=builder.model_url, model_out_dir=generated_model_dir, 
         inference_framework=infer_framework, server_args=custom_server_args
       )
+      
+      if os.path.exists(generated_model_dir) and os.listdir(generated_model_dir):
+        def zip_folder(folder_path):
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                for root, _, files in os.walk(folder_path):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        zip_file.write(file_path, os.path.relpath(file_path, folder_path))
+            zip_buffer.seek(0)
+            return zip_buffer
+        
+        zip_file = zip_folder(generated_model_dir)
+        st.markdown(
+        """
+          <style>
+          .blue-button {
+              display: inline-block;
+              padding: 10px 20px;
+              font-size: 16px;
+              color: white;
+              background-color: blue;
+              border: none;
+              border-radius: 5px;
+              text-align: center;
+              text-decoration: none;
+              cursor: pointer;
+          }
+          </style>
+        """,
+          unsafe_allow_html=True
+        )
+
+        st.download_button(
+            label="📁 Download Model Code",
+            data=zip_file,
+            file_name=f"{model_id}.zip",
+            mime="application/zip"
+        )
       
       if upload_btn:
         with st.spinner("Uploading model.."):
