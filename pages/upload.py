@@ -2,8 +2,10 @@ from copy import deepcopy
 import io
 import os
 import logging
+from pathlib import Path
 import queue
 import re
+import shutil
 import subprocess
 import sys
 from typing import Any, Dict
@@ -232,15 +234,24 @@ def display():
           "when": when
       }
   
+  IS_PROD = os.environ.get("PROD") == "1"
   with st.sidebar:
-    if os.environ.get("PROD") == "1":
-      default_output_folder = '/tmp'
+    if IS_PROD:
+      default_output_folder = '/tmp/1_click_upload/'
     else:
-      default_output_folder = './tmp'
+      default_output_folder = './tmp/1_click_upload/'
     if user_id and app_id:
       default_output_folder = os.path.join(default_output_folder, f"{user_id}__{app_id}")
+      
+    
     output_folder = st.text_input(
         "Path to save generated model upload folder", default_output_folder,)
+    
+    if IS_PROD:
+      remove_cache_btn = st.button("Clean up generated folder.")
+      if remove_cache_btn and os.path.exists(output_folder):
+        shutil.rmtree(output_folder)
+        st.toast(f"Cleaned up {output_folder}!")
   
   with model_server_col:
     st.markdown("### Inference Settings")
@@ -335,6 +346,7 @@ def display():
       )
       
       if os.path.exists(generated_model_dir) and os.listdir(generated_model_dir):
+        st.toast("Click 📁 Download Model Code to get your code.")
         def zip_folder(folder_path):
             zip_buffer = io.BytesIO()
             with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
@@ -409,13 +421,16 @@ def display():
             )
           
       elif test_locally_btn:
-        if infer_framework == "llamacpp":
-          st.error("Not support testing llamacpp with virtual env.")
-          st.stop()
-        with st.spinner("Testing model locally..."):
-          cmds = [
-            "clarifai", "model", "test-locally", "--model_path", str(generated_model_dir), "--keep_env", "--mode", "env"]
-          run_subprocess(cmds)
+        if not IS_PROD:
+          if infer_framework == "llamacpp":
+            st.error("Not support testing llamacpp with virtual env.")
+            st.stop()
+          with st.spinner("Testing model locally..."):
+            cmds = [
+              "clarifai", "model", "test-locally", "--model_path", str(generated_model_dir), "--keep_env", "--mode", "env"]
+            run_subprocess(cmds)
+        else:
+          st.error("Test locally is not allowed on cloud.")
       else:
         st.info(f"Model code was generated at '{generated_model_dir}'")
       
