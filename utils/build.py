@@ -52,8 +52,10 @@ def build_model_upload(
     dockerfile_default = f.read()
   with open(dockerfile, "w") as f:
     dockerfile_default = dockerfile_default.replace("${CLARIFAI_NUM_THREADS}", str(clarifai_threads))
-    download_cmd_docker = """#RUN ["python", "-m", "clarifai.cli", "model", "download-checkpoints", """
-    dockerfile_default = dockerfile_default.replace(download_cmd_docker, download_cmd_docker[1:])
+    stage = config_yaml_data.get("checkpoints", {}).get("when")
+    if stage == "build":
+      download_cmd_docker = """#RUN ["python", "-m", "clarifai.cli", "model", "download-checkpoints", """
+      dockerfile_default = dockerfile_default.replace(download_cmd_docker, download_cmd_docker[1:])
     
     if inference_framework == "llamacpp" and use_cpu_only:
       base_llamacpp_docker = "FROM ghcr.io/ggml-org/llama.cpp:server-cuda"
