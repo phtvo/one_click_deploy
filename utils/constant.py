@@ -11,8 +11,9 @@ FRAMEWORK_INFO = {
     "supported_models": "https://lmdeploy.readthedocs.io/en/latest/supported_models/supported_models.html",
     "requirements": [
       "torch==2.5.1",
-      "lmdeploy==0.7.1",
+      "lmdeploy==0.7.2",
       "transformers==4.49.0",
+      "partial-json-parser",
       ],
     "init_args": inspect_function_args(OpenAI_APIServer.from_lmdeploy_backend, drop_keys=["checkpoints"]),
     "init": "OpenAI_APIServer.from_lmdeploy_backend"
@@ -22,7 +23,7 @@ FRAMEWORK_INFO = {
     "supported_models": "https://docs.vllm.ai/en/latest/models/supported_models.html",
     "requirements": [
       "torch==2.6.0",
-      "vllm==0.8.0",
+      "vllm==0.8.1",
       "transformers>=4.49.0",
       "backoff==2.2.1",
       "peft>=0.13.2",
