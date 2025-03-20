@@ -90,7 +90,7 @@ class OpenAI_APIServer:
           stderr=subprocess.STDOUT,
           text=True,
           encoding="utf-8",
-          errors="ignore" 
+          errors="ignore"
       )
       for line in self.process.stdout:
         logger.info("Server Log:  " + line.strip())
@@ -122,7 +122,7 @@ class OpenAI_APIServer:
       cache_max_entry_count=0.9,
       tensor_parallel_size=1,
       max_prefill_token_num=4096,
-      dtype='float16',
+      dtype='auto',
       quantization_format: str = None,
       quant_policy: int = 0,
       chat_template: str = None,
@@ -140,7 +140,7 @@ class OpenAI_APIServer:
         cache_max_entry_count (float, optional): reserved mem for cache. Defaults to 0.9.
         tensor_parallel_size (int, optional): n gpus. Defaults to 1.
         max_prefill_token_num (int, optional): prefill token, the higher the more GPU mems are used. Defaults to 4096.
-        dtype (str, optional): dtype. Defaults to 'float16'.
+        dtype (str, optional): dtype. Defaults to 'auto'.
         quantization_format (str, optional): quantization {awq, gptq}. Defaults to None.
         quant_policy (int, optional): KV cache quant policty {0, 4, 8} bits, 0 means not using quantization. Defaults to 0.
         chat_template (str, optional): Chat template. To see all chatempltes, run `lmdeploy list`. Defaults to None.
@@ -190,7 +190,7 @@ class OpenAI_APIServer:
       cmds += ['--max-prefill-token-num', str(max_prefill_token_num)]
 
     cmds += additional_list_args
-    print("CMDS to run `lmdeploy` server: ", " ".join(cmds), "\n")
+    logger.info("CMDS to run `lmdeploy` server: " + " ".join(cmds))
 
     _self = cls()
 
@@ -205,7 +205,7 @@ class OpenAI_APIServer:
   def from_vllm_backend(
       cls,
       checkpoints,
-      limit_mm_per_prompt:str='',
+      limit_mm_per_prompt: str = '',
       max_model_len: float = None,
       gpu_memory_utilization: float = 0.9,
       dtype="auto",
@@ -275,7 +275,7 @@ class OpenAI_APIServer:
     if additional_list_args != []:
       cmds += additional_list_args
 
-    print("CMDS to run vllm server: ", cmds)
+    logger.info("CMDS to run vllm server: \n" + ' '.join(cmds))
 
     _self = cls()
 
@@ -391,7 +391,7 @@ class OpenAI_APIServer:
     if additional_list_args:
       cmds += additional_list_args
 
-    print("CMDS to run `sglang` server: ", " ".join(cmds), "\n")
+    logger.info("CMDS to run `sglang` server: \n" + " ".join(cmds))
     _self = cls()
 
     _self.host = host
@@ -542,7 +542,7 @@ class OpenAI_APIServer:
     if additional_list_args != []:
       cmds += additional_list_args
 
-    print("CMDS to run `llamacpp` server: ", " ".join(cmds), "\n")
+    logger.info("CMDS to run `llamacpp` server: \n" + " ".join(cmds))
 
     _self = cls()
 
@@ -604,7 +604,7 @@ class OpenAI_APIServer:
     if additional_list_args != []:
       cmds += additional_list_args
 
-    print("CMDS to run `tgi` server: ", " ".join(cmds), "\n")
+    logger.info("CMDS to run `tgi` server: \n" + " ".join(cmds))
 
     _self = cls()
 
