@@ -4,5 +4,6 @@ ninja
 
 openai
 clarifai==11.1.5
+clarifai-protocol>=0.0.20
 psutil
 huggingface-hub==0.29.1

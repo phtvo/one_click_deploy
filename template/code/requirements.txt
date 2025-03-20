@@ -10,6 +10,7 @@ qwen-vl-utils==0.0.8
 timm
 openai
 clarifai==11.1.5
+clarifai-protocol>=0.0.20
 psutil
 
 $FRAMEWORK_REQUIREMENTS
