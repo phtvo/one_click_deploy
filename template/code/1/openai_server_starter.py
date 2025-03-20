@@ -89,7 +89,8 @@ class OpenAI_APIServer:
           stdout=subprocess.PIPE,
           stderr=subprocess.STDOUT,
           text=True,
-
+          encoding="utf-8",
+          errors="ignore" 
       )
       for line in self.process.stdout:
         logger.info("Server Log:  " + line.strip())
