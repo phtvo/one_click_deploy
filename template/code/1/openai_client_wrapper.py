@@ -1,4 +1,5 @@
 import base64
+import collections
 import itertools
 import json
 from typing import Iterator, List, Union
@@ -7,6 +8,7 @@ from clarifai_grpc.grpc.api import resources_pb2, service_pb2
 from clarifai_grpc.grpc.api.status import status_code_pb2, status_pb2
 from google.protobuf import json_format
 from openai import OpenAI
+from openai.types.chat import ChatCompletionChunk
 
 SYSTEM = "system"
 USER = "user"
@@ -78,7 +80,7 @@ def proto_to_chat(inp: resources_pb2.Input, modalities=["audio", "image", "video
   # otherwise default role of current prompt is user
   except:
     role = USER
-  
+
   if role != SYSTEM:
     content = [
         {'type': 'text', 'text': str(prompt)},
@@ -95,7 +97,7 @@ def proto_to_chat(inp: resources_pb2.Input, modalities=["audio", "image", "video
         sub_chat_data = process_func(getattr(each_part.data, modality_type))
         if sub_chat_data:
           _cont.append(sub_chat_data)
-          
+
       content.extend(_cont)
       logger.debug(f"Client     * {len(_cont)} {modality_type}(s)")
 
@@ -124,7 +126,7 @@ def parse_request(request: service_pb2.PostModelOutputsRequest, modalities=["aud
   temperature = inference_params.pop("temperature", 0.7)
   max_tokens = int(inference_params.pop("max_tokens", 256))
   top_p = inference_params.pop("top_p", .95)
-  
+
   _ = inference_params.pop("stream", None)
   chat_history = inference_params.pop("chat_history", False)
   print("chat_history:", chat_history)
@@ -158,6 +160,15 @@ def parse_request(request: service_pb2.PostModelOutputsRequest, modalities=["aud
   return batch_messages, gen_config
 
 
+def chatcompletions(openai_client, kwargs):
+    try:
+      results = openai_client.chat.completions.create(**kwargs)
+      return results
+    except Exception as e:
+      logger.error(f"API expection: {e}")
+      raise e
+
+
 class OpenAIWrapper():
 
   def __init__(self, client: OpenAI, modalities=["audio", "image", "video"], **kwargs):
@@ -177,37 +188,55 @@ class OpenAIWrapper():
       extra_body: dict = {}
   ) -> service_pb2.MultiOutputResponse:
 
-    messages, inference_params = parse_request(
-        request, modalities=self.modalities)
-    logger.debug("Client: Sending")
-    list_kwargs = [
-        dict(
-            model=self.model_id,
-            messages=msg,
-            **inference_params,
-            extra_body=extra_body,
-            stream=True,
-            stream_options={"include_usage": True}
-        ) for msg in messages
-    ]
+    try:
+      messages, inference_params = parse_request(
+          request, modalities=self.modalities)
+      logger.debug("Client: Sending")
+      list_kwargs = [
+          dict(
+              model=self.model_id,
+              messages=msg,
+              **inference_params,
+              extra_body=extra_body,
+              stream=True,
+              stream_options={"include_usage": True}
+          ) for msg in messages
+      ]
+      streams = [chatcompletions(self.client, kwargs)
+                 for kwargs in list_kwargs]
+      outputs = [resources_pb2.Output() for _ in range(len(request.inputs))]
 
-    streams = [
-        self.client.chat.completions.create(**kwargs) for kwargs in list_kwargs]
-    outputs = [resources_pb2.Output() for _ in request.inputs]
-    for output in outputs:
-      output.status.code = status_code_pb2.SUCCESS
+      for chunk_batch in itertools.zip_longest(*streams, fillvalue=None):
+        for idx, chunk in enumerate(chunk_batch):
+          if chunk and isinstance(chunk, ChatCompletionChunk):
+            outputs[idx].status.code = status_code_pb2.SUCCESS
+            if chunk.choices:
+              outputs[idx].data.text.raw += chunk.choices[0].delta.content if (
+                  chunk and chunk.choices[0].delta.content) is not None else ''
+            if chunk.usage:
+              outputs[idx].prompt_tokens = chunk.usage.prompt_tokens
+              outputs[idx].completion_tokens = chunk.usage.completion_tokens
+          else:
+            print("chunk: ", chunk, type(chunk))
+            outputs[idx].status.code = status_code_pb2.INTERNAL_UNCATEGORIZED
+            outputs[idx].status.description = str(chunk)
 
-    for chunk_batch in itertools.zip_longest(*streams, fillvalue=None):
-      for idx, chunk in enumerate(chunk_batch):
-        if chunk:
-          if chunk.choices:
-            outputs[idx].data.text.raw += chunk.choices[0].delta.content if (
-                chunk and chunk.choices[0].delta.content) is not None else ''
-          if chunk.usage:
-            outputs[idx].prompt_tokens = chunk.usage.prompt_tokens
-            outputs[idx].completion_tokens = chunk.usage.completion_tokens
+      return service_pb2.MultiOutputResponse(outputs=outputs, status=status_pb2.Status(code=status_code_pb2.SUCCESS))
 
-    return service_pb2.MultiOutputResponse(outputs=outputs, status=status_pb2.Status(code=status_code_pb2.SUCCESS))
+    except Exception as e:
+      output = resources_pb2.Output()
+      output.status.code = status_code_pb2.MODEL_PREDICTION_FAILED
+      body = getattr(e, "body", {})
+      msg = body.get("message", str(e)) if body else str(e)
+      output.status.description = msg
+
+      return service_pb2.MultiOutputResponse(
+          outputs=[output],
+          status=status_pb2.Status(
+              code=status_code_pb2.MODEL_PREDICTION_FAILED,
+              description=msg
+          )
+      )
 
   def generate(
       self,
@@ -215,37 +244,56 @@ class OpenAIWrapper():
       extra_body: dict = {}
   ) -> Iterator[service_pb2.MultiOutputResponse]:
 
-    messages, inference_params = parse_request(
-        request, modalities=self.modalities)
-    list_kwargs = [
-        dict(
-            model=self.model_id,
-            messages=msg,
-            **inference_params,
-            extra_body=extra_body,
-            stream=True,
-            stream_options={"include_usage": True}
-        ) for msg in messages
-    ]
+    try:
+      messages, inference_params = parse_request(
+          request, modalities=self.modalities)
+      list_kwargs = [
+          dict(
+              model=self.model_id,
+              messages=msg,
+              **inference_params,
+              extra_body=extra_body,
+              stream=True,
+              stream_options={"include_usage": True}
+          ) for msg in messages
+      ]
 
-    streams = [
-        self.client.chat.completions.create(**kwargs)
-        for kwargs in list_kwargs
-    ]
+      streams = [
+          chatcompletions(self.client, kwargs)
+          for kwargs in list_kwargs
+      ]
 
-    for chunk_batch in itertools.zip_longest(*streams, fillvalue=None):
+      for chunk_batch in itertools.zip_longest(*streams, fillvalue=None):
+        resp = service_pb2.MultiOutputResponse(
+            status=status_pb2.Status(code=status_code_pb2.SUCCESS))
+        for chunk in chunk_batch:
+          output = resp.outputs.add()
+          if chunk and isinstance(chunk, ChatCompletionChunk):
+            output.status.code = status_code_pb2.SUCCESS
+            if chunk.choices:
+              text = (chunk.choices[0].delta.content
+                      if (chunk and chunk.choices[0].delta.content) is not None else '')
+              output.data.text.raw = text
+            if chunk.usage:
+              output.prompt_tokens = chunk.usage.prompt_tokens
+              output.completion_tokens = chunk.usage.completion_tokens
+          else:
+            output.status.code = status_code_pb2.INTERNAL_UNCATEGORIZED
+            output.status.description = str(chunk)
+
+        yield resp
+
+    except Exception as e:
+      body = getattr(e, "body", {})
+      msg = body.get("message", str(e)) if body else str(e)
+      output = resources_pb2.Output()
+      output.status.description = msg
+      output.status.code = status_code_pb2.MODEL_PREDICTION_FAILED
       resp = service_pb2.MultiOutputResponse(
-          status=status_pb2.Status(code=status_code_pb2.SUCCESS))
-      for chunk in chunk_batch:
-        output = resp.outputs.add()
-        output.status.code = status_code_pb2.SUCCESS
-        if chunk:
-          if chunk.choices:
-            text = (chunk.choices[0].delta.content
-                    if (chunk and chunk.choices[0].delta.content) is not None else '')
-            output.data.text.raw = text
-          if chunk.usage:
-            output.prompt_tokens = chunk.usage.prompt_tokens
-            output.completion_tokens = chunk.usage.completion_tokens
+          outputs=[output],
+          status=status_pb2.Status(
+              code=status_code_pb2.MODEL_PREDICTION_FAILED, description=msg
+          )
+      )
 
       yield resp

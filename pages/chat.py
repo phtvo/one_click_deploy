@@ -157,33 +157,45 @@ def display():
       if is_generate:
         with st.spinner("Loading the model..."):
           start_time = time.time()
-          response_generator = model.generate([input_proto], runner_selector=runner_selector, inference_params=inference_kwargs)
-          with st.chat_message("assistant"):
-            response_placeholder = st.empty()
-            model_response_text = ""
-            token_count = 0
-            for resp in response_generator:
-              if resp.status.code == status_code_pb2.SUCCESS:
-                word = resp.outputs[0].data.text.raw
-                model_response_text += word
-                response_placeholder.markdown(model_response_text)
-                token_count += 1
-              else:
-                st.error(status_code_pb2)
-                #time.sleep(0.01)
-            end_time = time.time()
-            throughput = token_count / (end_time - start_time)
+          completion_tokens = 0
+          input_tokens = 0
+          try:
+            response_generator = model.generate([input_proto], runner_selector=runner_selector, inference_params=inference_kwargs)
+            with st.chat_message("assistant"):
+              response_placeholder = st.empty()
+              model_response_text = ""
+              for resp in response_generator:
+                if resp.status.code == status_code_pb2.SUCCESS:
+                  word = resp.outputs[0].data.text.raw
+                  model_response_text += word
+                  response_placeholder.markdown(model_response_text)
+                  input_tokens = resp.outputs[0].prompt_tokens
+                  completion_tokens = resp.outputs[0].completion_tokens
+                else:
+                  st.error(resp)
+                  #time.sleep(0.01)
+          except Exception as e:
+            st.error(f"Error: {e}")
+            st.stop()
+          end_time = time.time()
+          throughput = completion_tokens / (end_time - start_time)
         # Display throughput
-        st.markdown(f"**Token Throughput:** {throughput:.2f} tokens/sec. Output tokens: {token_count}")
+        st.markdown(
+            f"**Token Throughput:** {throughput:.2f} tokens/sec. Output Tokens: {completion_tokens}")
+            #f"**Token Throughput:** {throughput:.2f} tokens/sec. IN Tokens: {input_tokens} || OUT Tokens: {completion_tokens}")
       else:
         with st.spinner("Loading the model..."):
-          response = model.predict([input_proto], runner_selector=runner_selector, inference_params=inference_kwargs)
+          try:
+            response = model.predict([input_proto], runner_selector=runner_selector, inference_params=inference_kwargs)
+          except Exception as e:
+            st.error(f"Error: {e}")
+            st.stop()
           with st.chat_message("assistant"):
             if model_response_text.status.code == status_code_pb2.SUCCESS:
               model_response_text = response.outputs[0].data.text.raw
               st.markdown(model_response_text)
             else:
-              st.error(status_code_pb2)
+              st.error(resp)
       # Append assistant message to chat history
       st.session_state["messages"].append({"role": "assistant", "content": model_response_text})
   with st.sidebar:
