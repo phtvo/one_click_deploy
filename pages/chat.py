@@ -22,7 +22,8 @@ def display():
 
   # Sidebar
   st.sidebar.header("Model Setting")
-  model_url = st.sidebar.text_input("Model URL", value="https://clarifai.com/phatvo/text-generation/models/Qwen2_5-0_5B-Instruct-vllm")
+  model_url = st.sidebar.text_input(
+      "Model URL", value="https://clarifai.com/phatvo/text-generation/models/gemma-3-4b-it")
   base_url = st.sidebar.text_input("Base URL", value=os.environ.get("CLARIFAI_API_BASE","https://api.clarifai.com"))
   if base_url:
     os.environ["CLARIFAI_API_BASE"] = base_url
