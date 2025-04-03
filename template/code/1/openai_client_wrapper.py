@@ -217,7 +217,6 @@ class OpenAIWrapper():
               outputs[idx].prompt_tokens = chunk.usage.prompt_tokens
               outputs[idx].completion_tokens = chunk.usage.completion_tokens
           else:
-            print("chunk: ", chunk, type(chunk))
             outputs[idx].status.code = status_code_pb2.INTERNAL_UNCATEGORIZED
             outputs[idx].status.description = str(chunk)
 

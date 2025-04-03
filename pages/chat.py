@@ -181,7 +181,7 @@ def display():
           throughput = completion_tokens / (end_time - start_time)
         # Display throughput
         st.markdown(
-            f"**Token Throughput:** {throughput:.2f} tokens/sec. Output Tokens: {completion_tokens}")
+            f"**Token Throughput:** {throughput:.2f} tokens/sec. History Input tokens: {input_tokens} || Output Tokens: {completion_tokens}")
             #f"**Token Throughput:** {throughput:.2f} tokens/sec. IN Tokens: {input_tokens} || OUT Tokens: {completion_tokens}")
       else:
         with st.spinner("Loading the model..."):
