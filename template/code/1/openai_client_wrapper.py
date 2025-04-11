@@ -1,298 +1,197 @@
 import base64
-import collections
-import itertools
-import json
-from typing import Iterator, List, Union
-from clarifai.utils.logging import logger
-from clarifai_grpc.grpc.api import resources_pb2, service_pb2
-from clarifai_grpc.grpc.api.status import status_code_pb2, status_pb2
-from google.protobuf import json_format
+from typing import Dict, List, Union
+
+from clarifai.runners.utils.data_types import Audio, Image, Video
 from openai import OpenAI
-from openai.types.chat import ChatCompletionChunk
+from openai.types.chat import (ChatCompletionChunk, ChatCompletion)
+from openai.resources.completions import Stream as OpenAIStream
+from openai import (APIStatusError, BadRequestError)
 
-SYSTEM = "system"
-USER = "user"
-ASSISTANT = "assistant"
-
-
-def get_inference_params(request) -> dict:
-  """Get the inference params from the request."""
-  inference_params = {}
-  output_info = request.model.model_version.output_info
-  output_info = json_format.MessageToDict(
-      output_info, preserving_proto_field_name=True)
-  if "params" in output_info:
-    inference_params = output_info["params"]
-
-  return inference_params
-
-
-def image_proto_to_chat(image: resources_pb2.Image) -> Union[str, None]:
-  if image.base64:
-    image = "data:image/jpeg;base64," + \
-        base64.b64encode(image.base64).decode("utf-8")
-    image = {"type": "image_url", "image_url": {"url": image}}
+def _process_image(image: Image) -> Dict:
+  """Convert Clarifai Image object to OpenAI image format."""
+  if image.bytes:
+    b64_img = base64.b64encode(image.bytes).decode('utf-8')
+    return {'type': 'image_url', 'image_url': {'url': f"data:image/jpeg;base64,{b64_img}"}}
   elif image.url:
-    image = image.url
-    image = {"type": "image_url", "image_url": {"url": image}}
+    return {'type': 'image_url', 'image_url': {'url': image.url}}
   else:
-    image = None
-
-  return image
+    raise ValueError("Image must contain either bytes or URL")
 
 
-def audio_proto_to_chat(audio: resources_pb2.Audio) -> Union[str, None]:
-  if audio.base64:
+def _process_audio(audio: Audio) -> Dict:
+  if audio.bytes:
     audio = base64.b64encode(audio.base64).decode("utf-8")
-    audio = {"type": "input_audio", "input_audio": {
-        "data": audio, "format": "wav"}, }
+    audio = {
+        "type": "input_audio",
+        "input_audio": {
+            "data": audio,
+            "format": "wav"
+        },
+    }
   elif audio.url:
     audio = audio.url
-    audio = {"type": "audio_url", "audio_url": {"url": audio}, }
+    audio = {
+        "type": "audio_url",
+        "audio_url": {
+            "url": audio
+        },
+    }
   else:
-    audio = None
+    raise ValueError("Audio must contain either bytes or URL")
 
   return audio
 
 
-def video_proto_to_chat(video: resources_pb2.Video) -> Union[str, None]:
-  if video.base64:
+def _process_video(video: Video) -> Dict:
+  if video.bytes:
     video = "data:video/mp4;base64," + \
         base64.b64encode(video.base64).decode("utf-8")
-    video = {"type": "video_url", "video_url": {"url": video}, }
+    video = {
+        "type": "video_url",
+        "video_url": {
+            "url": video
+        },
+    }
   elif video.url:
     video = video.url
-    video = {"type": "video_url", "video_url": {"url": video}, }
+    video = {
+        "type": "video_url",
+        "video_url": {
+            "url": video
+        },
+    }
   else:
-    video = None
+    raise ValueError("Video must contain either bytes or URL")
 
   return video
 
 
-def proto_to_chat(inp: resources_pb2.Input, modalities=["audio", "image", "video"]) -> List:
-  prompt = inp.data.text.raw
+def build_messages(
+  prompt: str = "", 
+  system_prompt: str = "", 
+  images: List[Image] = [],
+  audios: List[Audio] = [],
+  videos: List[Video] = [],
+  chat_history: List[Dict] = []
+) -> List[Dict]:
+  """Construct OpenAI-compatible messages from input components."""
+  openai_messages = []
+  # Add previous conversation history
+  if chat_history:
+    openai_messages.extend(chat_history)
+  # If no history but have system prompt
+  elif system_prompt:
+    openai_messages.append({
+        "role": "system",
+        "content": system_prompt
+    })
 
-  # extract role and content in text if possible
-  try:
-    prompt = json.loads(prompt)
-    role = str(prompt.get("role", USER)).lower()
-    prompt = prompt.get("content", "")
-  # otherwise default role of current prompt is user
-  except:
-    role = USER
+  user_content = []
+  if prompt:
+    # Build user_content array for current message
+    user_content.append({'type': 'text', 'text': prompt})
 
-  if role != SYSTEM:
-    content = [
-        {'type': 'text', 'text': str(prompt)},
-    ]
+  # Add multiple images if present
+  if images:
+    for img in images:
+      user_content.append(_process_image(img))
+  # Add multiple audios if present
+  if audios:
+    for audio in audios:
+      user_content.append(_process_audio(audio))
+  # Add multiple videos if present
+  if videos:
+    for video in videos:
+      user_content.append(_process_video(video))
 
-    def add_modality(modality_type, process_func):
-      logger.debug("Client: Parsing " + modality_type + " using", process_func)
-      _cont = []
-      chat_data = process_func(getattr(inp.data, modality_type))
-      if chat_data:
-        _cont.append(chat_data)
-      # each turn could have more than 1 data
-      for each_part in inp.data.parts:
-        sub_chat_data = process_func(getattr(each_part.data, modality_type))
-        if sub_chat_data:
-          _cont.append(sub_chat_data)
+  if user_content:
+    # Append complete user message
+    openai_messages.append({'role': 'user', 'content': user_content})
 
-      content.extend(_cont)
-      logger.debug(f"Client     * {len(_cont)} {modality_type}(s)")
+  return openai_messages
 
-    if "image" in modalities:
-      add_modality("image", image_proto_to_chat)
-    if "audio" in modalities:
-      add_modality("audio", audio_proto_to_chat)
-    if "video" in modalities:
-      add_modality("video", video_proto_to_chat)
-    msg = {
-        'role': role,
-        'content': content
-    }
+class OpenAIWrapper:
 
-  elif prompt:
-    msg = {"role": role, "content": str(prompt)}
-  else:
-    msg = None
-
-  return msg
-
-
-def parse_request(request: service_pb2.PostModelOutputsRequest, modalities=["audio", "image", "video"]):
-  inference_params = get_inference_params(request)
-  logger.info(f"Client: inference_params: {inference_params}")
-  temperature = inference_params.pop("temperature", 0.7)
-  max_tokens = int(inference_params.pop("max_tokens", 256))
-  top_p = inference_params.pop("top_p", .95)
-
-  _ = inference_params.pop("stream", None)
-  chat_history = inference_params.pop("chat_history", False)
-  print("chat_history:", chat_history)
-
-  batch_messages = []
-  try:
-    for input_proto in request.inputs:
-      # Treat 'parts' as history [0:-1) chat + new chat [-1]
-      # And discard everything in input_proto.data
-      messages = []
-      if chat_history:
-        for each_part in input_proto.data.parts:
-          extrmsg = proto_to_chat(each_part, modalities=modalities)
-          if extrmsg:
-            messages.append(extrmsg)
-      # If not chat_history, input_proto.data as input
-      # And parts as sub data e.g. image1, image2
-      else:
-        new_message = proto_to_chat(input_proto, modalities=modalities)
-        if new_message:
-          messages.append(new_message)
-      batch_messages.append(messages)
-  except Exception as e:
-    raise e
-  gen_config = dict(
-      temperature=temperature,
-      max_tokens=max_tokens,
-      top_p=top_p,
-      **inference_params)
-
-  return batch_messages, gen_config
-
-
-def chatcompletions(openai_client, kwargs):
-    try:
-      results = openai_client.chat.completions.create(**kwargs)
-      return results
-    except Exception as e:
-      logger.error(f"API expection: {e}")
-      raise e
-
-
-class OpenAIWrapper():
-
-  def __init__(self, client: OpenAI, modalities=["audio", "image", "video"], **kwargs):
+  def __init__(self, client: OpenAI, modalities: List[str] = None):
     self.client = client
-    models = self.client.models.list()
-    logger.info(f"Client: model list -- {models}")
-    self.model_id = models.data[0].id
-    self.modalities = modalities
+    self.modalities = modalities or []
+    self._validate_modalities()
+    self.model_id = self._get_model_id()
+
+  def _validate_modalities(self):
+    valid_modalities = {'image', 'audio', 'video', 'text'}
+    invalid = set(self.modalities) - valid_modalities
+    if invalid:
+      raise ValueError(
+          f"Invalid modalities: {invalid}. Valid options: {valid_modalities}")
+
+  def _get_model_id(self):
+    try:
+      return self.client.models.list().data[0].id
+    except Exception as e:
+      raise ConnectionError("Failed to retrieve model ID from API") from e
 
   @staticmethod
-  def make_api_url(host, port, ver="v1"):
-    return f"http://{host}:{port}/{ver}"
+  def make_api_url(host: str, port: int, version: str = "v1") -> str:
+    return f"http://{host}:{port}/{version}"
 
-  def predict(
-      self,
-      request: service_pb2.PostModelOutputsRequest,
-      extra_body: dict = {}
-  ) -> service_pb2.MultiOutputResponse:
-
-    try:
-      messages, inference_params = parse_request(
-          request, modalities=self.modalities)
-      logger.debug("Client: Sending")
-      list_kwargs = [
-          dict(
-              model=self.model_id,
-              messages=msg,
-              **inference_params,
-              extra_body=extra_body,
-              stream=True,
-              stream_options={"include_usage": True}
-          ) for msg in messages
-      ]
-      streams = [chatcompletions(self.client, kwargs)
-                 for kwargs in list_kwargs]
-      outputs = [resources_pb2.Output() for _ in range(len(request.inputs))]
-
-      for chunk_batch in itertools.zip_longest(*streams, fillvalue=None):
-        for idx, chunk in enumerate(chunk_batch):
-          if chunk and isinstance(chunk, ChatCompletionChunk):
-            outputs[idx].status.code = status_code_pb2.SUCCESS
-            if chunk.choices:
-              outputs[idx].data.text.raw += chunk.choices[0].delta.content if (
-                  chunk and chunk.choices[0].delta.content) is not None else ''
-            if chunk.usage:
-              outputs[idx].prompt_tokens = chunk.usage.prompt_tokens
-              outputs[idx].completion_tokens = chunk.usage.completion_tokens
-          else:
-            outputs[idx].status.code = status_code_pb2.INTERNAL_UNCATEGORIZED
-            outputs[idx].status.description = str(chunk)
-
-      return service_pb2.MultiOutputResponse(outputs=outputs, status=status_pb2.Status(code=status_code_pb2.SUCCESS))
-
-    except Exception as e:
-      output = resources_pb2.Output()
-      output.status.code = status_code_pb2.MODEL_PREDICTION_FAILED
-      body = getattr(e, "body", {})
-      msg = body.get("message", str(e)) if body else str(e)
-      output.status.description = msg
-
-      return service_pb2.MultiOutputResponse(
-          outputs=[output],
-          status=status_pb2.Status(
-              code=status_code_pb2.MODEL_PREDICTION_FAILED,
-              description=msg
-          )
+  def cl_custom_chat(
+    self,
+    prompt: str = "",
+    system_prompt: str = "",
+    images: List[Image] = [],
+    audios: List[Audio] = [],
+    videos: List[Video] = [],
+    chat_history: List[Dict] = [],
+    max_tokens: int = 512,
+    temperature: float = 0.7,
+    top_p: float = 0.8,
+    stream=False,
+    **completion_kwargs
+  ) -> dict:
+    """Process request through OpenAI API."""
+    openai_messages = build_messages(
+        prompt, system_prompt, images, audios, videos, chat_history)
+    
+    if completion_kwargs.get("stream"):
+      # Force to use usage
+      stream_options = completion_kwargs.pop("stream_options", {})
+      stream_options.update({"include_usage": True})
+      completion_kwargs["stream_options"] = stream_options
+    
+    response = self.client.chat.completions.create(
+        model=self.model_id,
+        messages=openai_messages,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        top_p=top_p,
+        stream=stream,
+        **completion_kwargs
       )
 
-  def generate(
+    return response
+
+  def chat(
       self,
-      request: service_pb2.PostModelOutputsRequest,
-      extra_body: dict = {}
-  ) -> Iterator[service_pb2.MultiOutputResponse]:
+      **chat_compl_kwargs
+  ) -> Union[ChatCompletion, OpenAIStream[ChatCompletionChunk]]:
+
+    chat_compl_kwargs["model"] = self.model_id
+    if chat_compl_kwargs.get("stream"):
+      # Force to use usage
+      stream_options = chat_compl_kwargs.pop("stream_options", {})
+      stream_options.update({"include_usage": True})
+      chat_compl_kwargs["stream_options"] = stream_options
 
     try:
-      messages, inference_params = parse_request(
-          request, modalities=self.modalities)
-      list_kwargs = [
-          dict(
-              model=self.model_id,
-              messages=msg,
-              **inference_params,
-              extra_body=extra_body,
-              stream=True,
-              stream_options={"include_usage": True}
-          ) for msg in messages
-      ]
-
-      streams = [
-          chatcompletions(self.client, kwargs)
-          for kwargs in list_kwargs
-      ]
-
-      for chunk_batch in itertools.zip_longest(*streams, fillvalue=None):
-        resp = service_pb2.MultiOutputResponse(
-            status=status_pb2.Status(code=status_code_pb2.SUCCESS))
-        for chunk in chunk_batch:
-          output = resp.outputs.add()
-          if chunk and isinstance(chunk, ChatCompletionChunk):
-            output.status.code = status_code_pb2.SUCCESS
-            if chunk.choices:
-              text = (chunk.choices[0].delta.content
-                      if (chunk and chunk.choices[0].delta.content) is not None else '')
-              output.data.text.raw = text
-            if chunk.usage:
-              output.prompt_tokens = chunk.usage.prompt_tokens
-              output.completion_tokens = chunk.usage.completion_tokens
-          else:
-            output.status.code = status_code_pb2.INTERNAL_UNCATEGORIZED
-            output.status.description = str(chunk)
-
-        yield resp
-
-    except Exception as e:
+      result = self.client.chat.completions.create(
+          **chat_compl_kwargs
+      )
+      return result
+    
+    except BadRequestError as e:
       body = getattr(e, "body", {})
       msg = body.get("message", str(e)) if body else str(e)
-      output = resources_pb2.Output()
-      output.status.description = msg
-      output.status.code = status_code_pb2.MODEL_PREDICTION_FAILED
-      resp = service_pb2.MultiOutputResponse(
-          outputs=[output],
-          status=status_pb2.Status(
-              code=status_code_pb2.MODEL_PREDICTION_FAILED, description=msg
-          )
-      )
-
-      yield resp
+      raise BadRequestError(msg) from e
+    except Exception as e:
+      raise e

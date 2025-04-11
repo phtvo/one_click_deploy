@@ -3,7 +3,7 @@ packaging
 ninja
 
 openai
-clarifai==11.1.5
+clarifai==11.1.7rc7
 clarifai-protocol>=0.0.20
 psutil
 huggingface-hub==0.29.1

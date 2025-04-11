@@ -58,12 +58,12 @@ class OpenAI_APIServer:
 
   def close(self):
     if self.process:
+      logger.info(f"Kill process: {self.process.pid}")
       try:
         kill_process_tree(self.process.pid)
       except:
+        self.process.kill()
         self.process.terminate()
-    if self.server_thread:
-      self.server_thread.join()
 
   def wait_for_startup(self):
     self.server_started_event.wait()

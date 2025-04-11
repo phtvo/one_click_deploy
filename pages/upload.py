@@ -13,23 +13,22 @@ import zipfile
 import streamlit as st
 st.set_page_config(layout="wide")
 
-from PIL import Image
-from clarifai.client import Model, Inputs
-from clarifai_grpc.grpc.api import resources_pb2
-from utils.constant import FRAMEWORK_INFO as FI
-from utils.build import build_model_upload
-from utils.patch_infer_parms import patch_infer_params
 from clarifai.runners.models.model_builder import ModelBuilder
 from clarifai.utils.logging import logger
 import shlex
 
+from utils.build import build_model_upload
+from utils.constant import FRAMEWORK_INFO as FI
+from utils.patch_infer_parms import patch_infer_params
+
 PYTHON_EXEC = sys.executable
 
 def create_model_note(model_type, model_name, hf_model_id, model_url, model_out_dir, inference_framework:dict, server_args:Dict[str, Any]):
+  from string import Template
   root = os.path.dirname(__file__)
   note_dir = os.path.join(root, "../template/model_notes")
   with open(os.path.join(note_dir, f"{model_type}.md"), "r") as f:
-    note_data = f.read()
+    note_data = Template(f.read())
   
   # Create cmd
   cmds = []
@@ -48,7 +47,7 @@ def create_model_note(model_type, model_name, hf_model_id, model_url, model_out_
         cmds.extend([str(k), str(v)])
   cmds = " ".join(cmds)
   
-  new_note = note_data.format(
+  new_note = note_data.substitute(
     model_name=model_name,
     hf_model_id=hf_model_id,
     model_url=model_url,
@@ -93,6 +92,7 @@ def run_subprocess(command):
     process.stdout.close()
     process.wait()
     process.kill()
+    process.terminate()
     
     # get model version at last log line
     model_version = extract_version(log)
@@ -176,8 +176,8 @@ def display():
 
     # Inference compute info
     st.markdown("#### Inference Compute Info")
-    cpu_limit = st.slider("CPU Limit", min_value=1, max_value=32, value=2)
-    cpu_memory = st.slider("CPU Memory", min_value=1, max_value=128, value=8)
+    cpu_limit = st.slider("CPU Limit", min_value=1, max_value=32, value=3)
+    cpu_memory = st.slider("CPU Memory", min_value=1, max_value=128, value=14)
     cpu_memory = f"{cpu_memory}Gi"
     use_cpu_only = st.toggle("Use CPU only", value=False)
     if use_cpu_only:
@@ -224,7 +224,8 @@ def display():
           "num_accelerators": num_accelerators,
           "accelerator_type": accelerator_type,
           "accelerator_memory": accelerator_memory
-      }
+      },
+      "num_threads": clarifai_threads
     }
     if when:
       yaml_config["checkpoints"] = {
@@ -388,7 +389,8 @@ def display():
       if upload_btn:
         with st.spinner("Uploading model.."):
           #upload_model(generated_model_dir, False, False)
-          model_version = run_subprocess(["clarifai", "model", "upload", "--model_path", generated_model_dir, "--skip_dockerfile"],)
+          model_version = run_subprocess([
+              PYTHON_EXEC, "-m", "clarifai.cli", "model", "upload", generated_model_dir, "--skip_dockerfile"],)
           if model_version:
             st.success(f"Uploaded model, please see model at {builder.model_url} version **{model_version}** or use this url for inference in SDK.")
             
@@ -427,7 +429,7 @@ def display():
             st.stop()
           with st.spinner("Testing model locally..."):
             cmds = [
-              "clarifai", "model", "test-locally", "--model_path", str(generated_model_dir), "--keep_env", "--mode", "env"]
+                PYTHON_EXEC, "-m" , "clarifai.cli", "model", "test-locally", "--model_path", str(generated_model_dir), "--keep_env", "--mode", "env"]
             run_subprocess(cmds)
         else:
           st.error("Test locally is not allowed on cloud.")

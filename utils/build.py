@@ -1,5 +1,6 @@
 import os
 import sys
+from typing import Literal
 ROOT = os.path.dirname(__file__)
 sys.path.append(ROOT)
 
@@ -24,6 +25,7 @@ def build_model_upload(
 ):
   assert inference_framework in FI, ValueError()
   os.makedirs(output_dir, exist_ok=True)
+  template_llamacpp_dir = os.path.join(template_code_dir, "../llamacpp")
   #print(f"Copying from {template_code_dir} to {output_dir}")
   shutil.copytree(template_code_dir, output_dir, ignore=ignore_patterns, dirs_exist_ok=True)
   model_py = os.path.join(output_dir, "1/model.py")
@@ -35,7 +37,7 @@ def build_model_upload(
   use_cpu_only = config_yaml_data["inference_compute_info"]["num_accelerators"] < 1
   # Overwrite by llamacpp files
   if inference_framework == "llamacpp":
-    shutil.copytree(os.path.join(template_code_dir, "../llamacpp"), output_dir,
+    shutil.copytree(template_llamacpp_dir, output_dir,
                     ignore=ignore_patterns, dirs_exist_ok=True)
   
   with open(cf_yaml, "w") as file:
@@ -90,7 +92,8 @@ if __name__ == "__main__":
         "num_accelerators": 1,
         "accelerator_type": ["NVIDIA-A10G"],
         "accelerator_memory": "24Gi"
-    }
+    },
+    "num_threads": 32
   }
   build_model_upload(
     inference_framework="sglang",

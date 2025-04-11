@@ -1,10 +1,10 @@
-# {model_name}
+# $model_name
 
-[Model source](https://huggingface.co/{hf_model_id})
+[Model source](https://huggingface.co/$hf_model_id)
 
-Model is serving with `{inference_framework}`.
+Model is serving with `$inference_framework`.
 
-Input data type: `{input_data_type}`
+Input data type: `$input_data_type`
 
 # Usage
 
@@ -15,7 +15,7 @@ Find your PAT in your security settings.
 
 * Linux/Mac: `export CLARIFAI_PAT="your personal access token"`
 
-* Windows (Powershell): `$env:CLARIFAI_PAT="your personal access token"`
+* Windows (Powershell): `$$env:CLARIFAI_PAT="your personal access token"`
 
 ## Running the API with Clarifai's Python SDK
 
@@ -24,28 +24,48 @@ Find your PAT in your security settings.
 # Please run `pip install -U clarifai` before running this script
 
 from clarifai.client import Model
-from clarifai_grpc.grpc.api.status import status_code_pb2
-from clarifai.client.input import Inputs
+from clarifai.runners.utils.data_types import Image
 
-model = Model(url="{model_url}")
+
+model = Model(url="$model_url")
 
 prompt = "What time of day is it?"
 image_url = "https://samples.clarifai.com/metro-north.jpg"
 
 
+# clarifai style prediction method
+## Stream
+generated_text = model.generate(prompt=prompt, images=[Image()])
+for each in generated_text:
+    print(each, end='', flush=True)
+## Non stream
+generated_text = model.predict(prompt=prompt)
+print(generated_text)
 
-input_data = Inputs.get_multimodal_input(input_id="",image_url=image_url, raw_text=prompt)
-inference_params = dict(temperature=0.2, max_tokens=100) # Optional
+# openai chat completion method
+conversion = [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": [
+        {'type': 'text', 'text': prompt},
+        {'type': 'image_url', 'image_url': {'url': image_url}}
+      ]
+    },
+    # Continue adding messages as the conversation progresses
+]
+## Stream
+stream_generated_text = model.chat_with_stream(messages=conversion)
+for chunk in stream_generated_text:
+  # chunk is dict ChatCompletionChunk format
+  text = chunk['choices'][0]['message']['content'] 
+  print(text, end='', flush=True)
 
-results = model.generate([input_data], inference_params=inference_params)
-
-for res in results:
-  if res.status.code == status_code_pb2.SUCCESS:
-    print(res.outputs[0].data.text.raw, end='', flush=True)
+## Non stream
+generated_text = model.chat(messages=conversion) # dict of ChatCompletion format
+print(generated_text["choices"][0]["message"]["content"])
 ```
 
 # Server extra args
 
 ```
-{server_args}
+${server_args}
 ```

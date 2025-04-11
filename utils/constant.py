@@ -12,7 +12,7 @@ FRAMEWORK_INFO = {
     "requirements": [
       "torch==2.5.1",
       "lmdeploy==0.7.2",
-      "transformers==4.49.0",
+      "transformers>=4.51.2",
       "partial-json-parser",
       ],
     "init_args": inspect_function_args(OpenAI_APIServer.from_lmdeploy_backend, drop_keys=["checkpoints"]),
@@ -23,8 +23,8 @@ FRAMEWORK_INFO = {
     "supported_models": "https://docs.vllm.ai/en/latest/models/supported_models.html",
     "requirements": [
       "torch==2.6.0",
-      "vllm==0.8.2",
-      "transformers>=4.50.0",
+      "vllm==0.8.3",
+      "transformers>=4.51.2",
       "backoff==2.2.1",
       "peft>=0.13.2",
       "soundfile>=0.13.1",
@@ -42,8 +42,8 @@ FRAMEWORK_INFO = {
     "requirements": [
         "torch==2.5.1",
       "--find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python",
-      "sglang[all]>=0.4.3.post2",
-      "transformers==4.48.3",
+      "sglang[all]>=0.4.5.post2",
+      "transformers>=4.50.0",
     ],
     "init_args": inspect_function_args(OpenAI_APIServer.from_sglang_backend, drop_keys=["checkpoints"]),
     "init": "OpenAI_APIServer.from_sglang_backend"
