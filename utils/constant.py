@@ -42,7 +42,7 @@ FRAMEWORK_INFO = {
     "requirements": [
         "torch==2.5.1",
       "--find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python",
-      "sglang[all]>=0.4.5.post2",
+      "sglang[all]>=0.4.5",
       "transformers>=4.50.0",
     ],
     "init_args": inspect_function_args(OpenAI_APIServer.from_sglang_backend, drop_keys=["checkpoints"]),

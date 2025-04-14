@@ -1,3 +1,4 @@
+import platform
 from copy import deepcopy
 import io
 import os
@@ -6,8 +7,10 @@ from pathlib import Path
 import queue
 import re
 import shutil
+import signal
 import subprocess
 import sys
+import threading
 from typing import Any, Dict
 import zipfile
 import streamlit as st
@@ -65,43 +68,90 @@ def extract_version(text):
     match = re.search(r"version:\s*([\w\d]+)", text)
     return match.group(1) if match else None
 
+
 def run_subprocess(command):
     env_vars = os.environ.copy()
-    process = subprocess.Popen(
-        command, 
-        stdin=subprocess.PIPE,  # Enable input to process
-        stdout=subprocess.PIPE, 
-        stderr=subprocess.STDOUT, 
-        text=True,
-        env=env_vars
-    )
+    def start_process(cmd):
+        if platform.system() == "Windows":
+            return subprocess.Popen(
+                cmd,
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                env=env_vars
+            )
+        else:
+            return subprocess.Popen(
+                cmd,
+                preexec_fn=os.setsid,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                env=env_vars
+            )
 
-    process.stdin.write("\n")  # Send Enter key
-    process.stdin.flush()  # Ensure the input is processed
+    def kill_process(proc):
+        if platform.system() == "Windows":
+            proc.send_signal(signal.CTRL_BREAK_EVENT)
+        else:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
 
+    def enqueue_output(out, q):
+        for line in iter(out.readline, ''):
+            q.put(line)
+        out.close()
+
+    process = start_process(command)
+    # Send Enter key
+    process.stdin.write("\n")
+    process.stdin.flush()
+    # Start reader thread
     log_queue = queue.Queue(maxsize=30)
-    st_log_title.markdown(f"Running command `{' '.join(command)}`, see its log below")
-    for line in iter(process.stdout.readline, ""):
-      print(line.strip())
-      if log_queue.full():
-        log_queue.get()
-      log_queue.put(line.strip())
-      log = "\n".join(list(log_queue.queue))
-      st_log.code(log)
-    
-    process.stdout.close()
-    process.wait()
-    process.kill()
-    process.terminate()
-    
-    # get model version at last log line
+    output_queue = queue.Queue()
+    thread = threading.Thread(target=enqueue_output,
+                              args=(process.stdout, output_queue))
+    thread.daemon = True
+    thread.start()
+
+    st_log_title.markdown(
+        f"Running command `{' '.join(command)}`, see its log below")
+
+    log = ""
+    timedout = 30
+    try:
+      while True:
+        try:
+            line = output_queue.get(timeout=None)
+        except queue.Empty:
+            break
+            
+        if log_queue.full():
+            log_queue.get()
+        log_queue.put(line.strip())
+        log = "\n".join(list(log_queue.queue))
+        st_log.code(log)
+        print(line.strip())
+        if "model tested successfully" in log.lower() or (
+            "error" in log.lower()
+        ):
+          break
+        if process.poll() is not None and output_queue.empty():
+            break
+    finally:
+      logger.info("Kill process")
+      kill_process(process)
+      process.stdout.close()
+
     model_version = extract_version(log)
-    
-    if process.returncode != 0:  # Non-zero exit code = error
-      error_msg = f"Command failed with exit code {process.returncode}"
-      error_area.error(error_msg)
-      st.stop()
-    
+
+    if process.returncode is not None and process.returncode != 0:
+        error_msg = f"Command failed with exit code {process.returncode}"
+        st.error(error_msg)
+        st.stop()
+
     return model_version
 
 st_log_title = st.empty()

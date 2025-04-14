@@ -54,6 +54,7 @@ class OpenAI_APIServer:
   def __del__(self, *exc):
     # This is important
     # close the server when exit the program
+    logger.info("Killing the server.")
     self.close()
 
   def close(self):
