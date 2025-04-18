@@ -250,7 +250,7 @@ class MyRunner(ModelClass):
     print("---"*5)
     # Test chat_with_stream
     logger.info("# 4/4: Test 'chat_with_stream'.\n")
-    for each in self.chat_with_stream(messages):
+    for each in self.stream_chat(messages):
       if each["choices"]:
         print(each["choices"][0]["delta"].get("content", ""), flush=True, end='')
     print("---"*5)
