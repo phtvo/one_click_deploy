@@ -11,7 +11,7 @@ from typing import Dict, Iterator, List, Union
 from clarifai.runners.models.model_builder import ModelBuilder
 from clarifai.runners.models.model_class import ModelClass
 from clarifai.utils.logging import logger
-from clarifai.runners.utils.data_types import (Image, Stream, Video, Audio)
+from clarifai.runners.utils.data_types import (Image, Video, Audio)
 
 from openai import OpenAI
 from openai.types.chat import (ChatCompletionChunk, ChatCompletion)
@@ -104,7 +104,7 @@ class MyRunner(ModelClass):
     max_tokens: int = 512,
     temperature: float = 0.7,
     top_p: float = 0.8,
-  ) -> Stream[str]:
+  ) -> Iterator[str]:
     """Method to call generate from UI
     """
     stream_completion = self.client.cl_custom_chat(
@@ -184,7 +184,7 @@ class MyRunner(ModelClass):
       tools: List[dict] = [],
       stream_options: dict = {},
       extra_body: dict = {},
-  ) -> Stream[list]:
+  ) -> Iterator[list]:
     """
     """
 
