@@ -7,6 +7,9 @@ from openai.types.chat import (ChatCompletionChunk, ChatCompletion)
 from openai.resources.completions import Stream as OpenAIStream
 from openai import (APIStatusError, BadRequestError)
 
+class ModelBadRequestError(Exception):
+  pass
+
 def _process_image(image: Image) -> Dict:
   """Convert Clarifai Image object to OpenAI image format."""
   if image.bytes:
@@ -192,6 +195,6 @@ class OpenAIWrapper:
     except BadRequestError as e:
       body = getattr(e, "body", {})
       msg = body.get("message", str(e)) if body else str(e)
-      raise BadRequestError(msg) from e
+      raise ModelBadRequestError(f"BadRequestError: {msg}")
     except Exception as e:
       raise e
