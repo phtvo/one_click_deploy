@@ -45,7 +45,7 @@ conversion = [
     # Continue adding messages as the conversation progresses
 ]
 ## Stream
-stream_generated_text = model.chat_with_stream(messages=conversion)
+stream_generated_text = model.stream_chat(messages=conversion)
 for chunk in stream_generated_text:
   # chunk is dict ChatCompletionChunk format
   text = chunk['choices'][0]['message']['content'] 

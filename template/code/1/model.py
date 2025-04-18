@@ -166,7 +166,7 @@ class MyRunner(ModelClass):
     ).model_dump()
 
   @ModelClass.method
-  def chat_with_stream(
+  def stream_chat(
       self,
       messages: List[dict],
       frequency_penalty: float = 0.,
