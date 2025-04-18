@@ -135,11 +135,26 @@ def run_subprocess(command):
         st_log.code(log)
         print(line.strip())
         if "model tested successfully" in log.lower() or (
-            "error" in log.lower()
+            "error " in log.lower() or " error" in log.lower()
         ):
+          _n = 0
+          while _n < 60:
+            try:
+              line = output_queue.get(timeout=5)
+            except:
+              break
+            if log_queue.full():
+              log_queue.get()
+            log_queue.put(line.strip())
+            log = "\n".join(list(log_queue.queue))
+            st_log.code(log)
+            print(line.strip())
+            _n += 1
+          break
+        if "Check out the model at https://" in log:
           break
         if process.poll() is not None and output_queue.empty():
-            break
+          break
     finally:
       logger.info("Kill process")
       kill_process(process)
