@@ -1,4 +1,4 @@
 streamlit>=1.43.2
-clarifai==11.1.5
+clarifai==11.2.4rc2
 huggingface_hub
 psutil
