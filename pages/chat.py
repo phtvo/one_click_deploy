@@ -1,16 +1,16 @@
+import base64
 import os
 import sys
 import time
 
 sys.path.append(os.path.dirname(__file__))
-from utils.utils import chat_history_to_input_proto
+from utils.utils import chat_history_from_st_cache, chat_history_from_st_cache_for_render
 
 ##
 import streamlit as st
 st.set_page_config(layout="wide")
 
 from clarifai.client import Model
-from clarifai_grpc.grpc.api.status import status_code_pb2
 
 ALLOWED_IMAGES = [".png", ".jpg", ".webp", ".jpeg"]
 ALLOWED_AUDIOS = [".wav"]
@@ -42,7 +42,6 @@ def display():
   print("Model: ", st.session_state["model_url"])
   print("Model id:", model.id)
   st.subheader(f"Model ID: `{str(model.id)}`")
-    
   with st.sidebar.expander("`Runner selector`"):
     from clarifai.client.deployment import Deployment
     from clarifai.client.nodepool import Nodepool
@@ -52,14 +51,20 @@ def display():
         "compute_cluster_id", os.environ.get("CLARIFAI_COMPUTE_CLUSTER_ID"))
     nodepool_id = st.text_input(
         "nodepool_id", os.environ.get("CLARIFAI_NODEPOOL_ID"))
-    runner_selector = None
-    if deployment_id:
-      runner_selector = Deployment.get_runner_selector(
-          user_id=user_id, deployment_id=deployment_id)
-    elif compute_cluster_id and nodepool_id:
-      runner_selector = Nodepool.get_runner_selector(
-          user_id=user_id, compute_cluster_id=compute_cluster_id, nodepool_id=nodepool_id)
-
+    # runner_selector = None
+    # if deployment_id:
+    #   runner_selector = Deployment.get_runner_selector(
+    #       user_id=user_id, deployment_id=deployment_id)
+    # elif compute_cluster_id and nodepool_id:
+    #   runner_selector = Nodepool.get_runner_selector(
+    #       user_id=user_id, compute_cluster_id=compute_cluster_id, nodepool_id=nodepool_id)
+    model._set_runner_selector(
+        compute_cluster_id=compute_cluster_id,
+        nodepool_id=nodepool_id,
+        deployment_id=deployment_id,
+        user_id=user_id,
+    )
+    
   is_generate = st.sidebar.toggle("Stream response", value=True)
 
   st.sidebar.header("Inference Parameters")
@@ -74,7 +79,7 @@ def display():
     temperature=temperature,
     max_tokens=max_tokens,
     top_p=top_p,
-    chat_history=True
+    #chat_history=True
   )
 
   # Sidebar for system prompt
@@ -116,7 +121,6 @@ def display():
           
   # Input for user message
   user_input = st.chat_input("Type your message...", file_type=ALLOWDED_FILES, accept_file=True)
-  input_proto = None
   if user_input:
       # Append user message to chat history
       user_messages = {"role": "user", "content": []}
@@ -149,10 +153,8 @@ def display():
         st.session_state["messages"].append(user_messages)
         
       # Stream assistant response and measure throughput
-      input_proto = chat_history_to_input_proto(st.session_state["messages"])
-      #print("HISTORY:\n", st.session_state["messages"])
-      #print(input_proto)
       print(inference_kwargs)
+      messages = chat_history_from_st_cache(st.session_state["messages"])
       model_response_text = ""
       if is_generate:
         with st.spinner("Loading the model..."):
@@ -160,20 +162,24 @@ def display():
           completion_tokens = 0
           input_tokens = 0
           try:
-            response_generator = model.generate([input_proto], runner_selector=runner_selector, inference_params=inference_kwargs)
+            chat_completions = model.stream_chat(
+                messages=messages,
+              **inference_kwargs)
             with st.chat_message("assistant"):
               response_placeholder = st.empty()
               model_response_text = ""
-              for resp in response_generator:
-                if resp.status.code == status_code_pb2.SUCCESS:
-                  word = resp.outputs[0].data.text.raw
-                  model_response_text += word
-                  response_placeholder.markdown(model_response_text)
-                  input_tokens = resp.outputs[0].prompt_tokens
-                  completion_tokens = resp.outputs[0].completion_tokens
-                else:
-                  st.error(resp)
-                  #time.sleep(0.01)
+              for chunk in chat_completions:
+                try:
+                  if chunk and chunk['choices']:
+                    text = chunk['choices'][0]['delta']['content']
+                    model_response_text += text
+                    response_placeholder.markdown(model_response_text)
+                  if chunk.get('usage'):
+                    input_tokens = chunk['usage']['prompt_tokens']
+                    completion_tokens = chunk['usage']['completion_tokens']
+                except Exception as e:
+                  st.error(e)
+                  break
           except Exception as e:
             st.error(f"Error: {e}")
             st.stop()
@@ -186,25 +192,27 @@ def display():
       else:
         with st.spinner("Loading the model..."):
           try:
-            response = model.predict([input_proto], runner_selector=runner_selector, inference_params=inference_kwargs)
+            chat_completions = model.chat(
+                messages=messages,
+                **inference_kwargs)
           except Exception as e:
             st.error(f"Error: {e}")
             st.stop()
           with st.chat_message("assistant"):
-            if model_response_text.status.code == status_code_pb2.SUCCESS:
-              model_response_text = response.outputs[0].data.text.raw
+            try:
+              model_response_text = chat_completions["choices"][0]["message"]["content"]
               st.markdown(model_response_text)
-            else:
-              st.error(resp)
+            except Exception as e:
+              st.error(e)
       # Append assistant message to chat history
       st.session_state["messages"].append({"role": "assistant", "content": model_response_text})
   with st.sidebar:
     st.markdown("---")
     st.subheader("Input format")
     
-    st.markdown("##### Must set inference params: `chat_history=True`")
-    st.markdown("##### Input proto")
-    st.write(input_proto)
+    #st.markdown("##### Must set inference params: `chat_history=True`")
+    st.markdown("##### Chat format")
+    st.write(chat_history_from_st_cache_for_render(st.session_state["messages"]))
       
 if __name__ == "__main__":
   display()
