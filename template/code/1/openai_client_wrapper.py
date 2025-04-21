@@ -75,7 +75,8 @@ def build_messages(
   images: List[Image] = [],
   audios: List[Audio] = [],
   videos: List[Video] = [],
-  chat_history: List[Dict] = []
+  chat_history: List[Dict] = [],
+  **kwargs
 ) -> List[Dict]:
   """Construct OpenAI-compatible messages from input components."""
   openai_messages = []

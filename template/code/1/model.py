@@ -72,6 +72,9 @@ class MyRunner(ModelClass):
     max_tokens: int = 512,
     temperature: float = 0.7,
     top_p: float = 0.95,
+    audio: Audio = None,
+    video: Video = None,
+    image: Image = None,
   )-> str:
     """Method to call from UI
     """
@@ -79,9 +82,9 @@ class MyRunner(ModelClass):
     completion = self.client.cl_custom_chat(
       prompt=prompt,
       system_prompt=system_prompt,
-      images=images,
-      audios=audios,
-      videos=videos,
+      images=[image] if image else images,
+      audios=[audio] if audio else audios,
+      videos=[video] if video else videos,
       chat_history=chat_history,
       max_tokens=max_tokens,
       temperature=temperature,
@@ -104,15 +107,18 @@ class MyRunner(ModelClass):
     max_tokens: int = 512,
     temperature: float = 0.7,
     top_p: float = 0.8,
+    audio: Audio = None,
+    video: Video = None,
+    image: Image = None,
   ) -> Iterator[str]:
     """Method to call generate from UI
     """
     stream_completion = self.client.cl_custom_chat(
         prompt=prompt,
         system_prompt=system_prompt,
-        images=images,
-        audios=audios,
-        videos=videos,
+        images=[image] if image else images,
+        audios=[audio] if audio else audios,
+        videos=[video] if video else videos,
         chat_history=chat_history,
         max_tokens=max_tokens,
         temperature=temperature,
@@ -214,9 +220,12 @@ class MyRunner(ModelClass):
   
   def test(self):
     const_data = dict(
-      image=dict(images=[
-        Image(url="https://samples.clarifai.com/metro-north.jpg")
-      ]),
+      image=dict(
+        images=[
+          Image(url="https://samples.clarifai.com/metro-north.jpg")
+        ],
+        image=Image(url="https://samples.clarifai.com/metro-north.jpg")
+      ),
       video=dict(videos=[
         Video(url="https://samples.clarifai.com/GoodMorning.wav")
       ]),
