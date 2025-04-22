@@ -48,8 +48,9 @@ conversion = [
 stream_generated_text = model.stream_chat(messages=conversion)
 for chunk in stream_generated_text:
   # chunk is dict ChatCompletionChunk format
-  text = chunk['choices'][0]['message']['content'] 
-  print(text, end='', flush=True)
+  if chunk["choices"]:
+    text = chunk["choices"][0]["delta"].get("content", "")
+    print(text, end='', flush=True)
 
 ## Non stream
 generated_text = model.chat(messages=conversion) # dict of ChatCompletion format
