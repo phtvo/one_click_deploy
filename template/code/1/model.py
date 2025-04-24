@@ -227,10 +227,11 @@ class MyRunner(ModelClass):
         image=Image(url="https://samples.clarifai.com/metro-north.jpg")
       ),
       video=dict(videos=[
-        Video(url="https://samples.clarifai.com/GoodMorning.wav")
+          Video(url="https://samples.clarifai.com/beer.mp4")
       ]),
       audio=dict(audios=[
-        Audio(url="https://samples.clarifai.com/beer.mp4")
+          Audio(
+              url="https://samples.clarifai.com/GoodMorning.wav")
       ])
     )
     
