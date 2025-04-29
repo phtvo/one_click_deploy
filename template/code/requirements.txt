@@ -1,8 +1,8 @@
-tokenizers==0.21.0
-accelerate==1.2.0
-optimum==1.23.3
+tokenizers>=0.21.0
+accelerate>=1.2.0
+optimum>=1.23.3
 xformers
-einops==0.8.0
+einops>=0.8.0
 packaging
 ninja
 
