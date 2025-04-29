@@ -138,7 +138,7 @@ def run_subprocess(command):
             "error " in log.lower() or " error" in log.lower()
         ):
           _n = 0
-          while _n < 60:
+          while _n < 100:
             try:
               line = output_queue.get(timeout=5)
             except:
