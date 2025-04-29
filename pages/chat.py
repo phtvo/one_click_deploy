@@ -171,7 +171,7 @@ def display():
               for chunk in chat_completions:
                 try:
                   if chunk and chunk['choices']:
-                    text = chunk['choices'][0]['delta']['content']
+                    text = chunk['choices'][0]['delta']['content'] or ""
                     model_response_text += text
                     response_placeholder.markdown(model_response_text)
                   if chunk.get('usage'):
