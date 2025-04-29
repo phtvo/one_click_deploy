@@ -127,7 +127,8 @@ class MyRunner(ModelClass):
     )
 
     for chunk in stream_completion:
-      yield chunk.choices[0].delta.content
+      if chunk.choices and chunk.choices[0].delta.content is not None:
+        yield str(chunk.choices[0].delta.content)
     
 
   @ModelClass.method
