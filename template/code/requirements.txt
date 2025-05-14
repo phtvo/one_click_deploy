@@ -1,15 +1,14 @@
 tokenizers>=0.21.0
 accelerate>=1.2.0
 optimum>=1.23.3
-xformers
 einops>=0.8.0
 packaging
 ninja
 
 timm
 openai
-clarifai==11.3.0
-clarifai-protocol>=0.0.20
+clarifai>=11.4.1
+clarifai-protocol>=0.0.23
 psutil
 
 $FRAMEWORK_REQUIREMENTS

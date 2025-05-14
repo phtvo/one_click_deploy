@@ -1,18 +1,7 @@
 # syntax=docker/dockerfile:1.13-labs
-
-FROM debian:bookworm-slim AS builder
-# Install GIT
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
-
-FROM --platform=$TARGETPLATFORM public.ecr.aws/clarifai-models/torch:2.5.1-py3.11-cuda124-df565436eea93efb3e8d1eb558a0a46df29523ec as final
+FROM --platform=$TARGETPLATFORM public.ecr.aws/clarifai-models/torch:2.6.0-py3.12-cu126-b8ae56bf3b7c95e686ca002b07ca83d259c716eb as final
 
 COPY --link requirements.txt /home/nonroot/requirements.txt
-
-# Copy git binary and required libraries
-COPY --from=builder /usr/bin/git /usr/bin/git
-COPY --from=builder /lib /lib
-COPY --from=builder /lib64 /lib64
-COPY --from=builder /usr/lib /usr/lib
 
 # Update clarifai package so we always have latest protocol to the API. Everything should land in /venv
 RUN ["pip", "install", "--no-cache-dir", "-r", "/home/nonroot/requirements.txt"]
@@ -22,9 +11,9 @@ RUN ["pip", "show", "clarifai"]
 # Set the TORCHINDUCTOR cache dir to /tmp
 # The CLARIFAI* will be set by the templaing system.
 ENV NUMBA_CACHE_DIR=/tmp/numba_cache \
-TORCHINDUCTOR_CACHE_DIR=/tmp/torchinductor_cache \
-HOME=/tmp \
-DEBIAN_FRONTEND=noninteractive
+    TORCHINDUCTOR_CACHE_DIR=/tmp/torchinductor_cache \
+    HOME=/tmp \
+    DEBIAN_FRONTEND=noninteractive
 
 #####
 # Copy the files needed to download
@@ -35,7 +24,7 @@ COPY --chown=nonroot:nonroot downloader/unused.yaml /home/nonroot/main/1/checkpo
 #####
 # Download checkpoints if config.yaml has checkpoints.when = "build"
 COPY --link=true config.yaml /home/nonroot/main/
-#RUN ["python", "-m", "clarifai.cli", "model", "download-checkpoints", "--model_path", "/home/nonroot/main", "--out_path", "/home/nonroot/main/1/checkpoints", "--stage", "build"]
+RUN ["python", "-m", "clarifai.cli", "model", "download-checkpoints", "/home/nonroot/main", "--out_path", "/home/nonroot/main/1/checkpoints", "--stage", "build"]
 #####
 
 # Copy in the actual files like config.yaml, requirements.txt, and most importantly 1/model.py
@@ -43,7 +32,6 @@ COPY --link=true config.yaml /home/nonroot/main/
 # If checkpoints aren't downloaded since a checkpoints: block is not provided, then they will
 # be in the build context and copied here as well.
 COPY --link=true 1 /home/nonroot/main/1
-
 # At this point we only need these for validation in the SDK.
 COPY --link=true requirements.txt config.yaml /home/nonroot/main/
 
@@ -55,7 +43,7 @@ ENV PYTHONPATH=${PYTHONPATH}:/home/nonroot/main \
     CLARIFAI_NODEPOOL_ID=${CLARIFAI_NODEPOOL_ID} \
     CLARIFAI_COMPUTE_CLUSTER_ID=${CLARIFAI_COMPUTE_CLUSTER_ID} \
     CLARIFAI_API_BASE=${CLARIFAI_API_BASE:-https://api.clarifai.com}
-    
+
 # Finally run the clarifai entrypoint to start the runner loop and local dev server.
 # Note(zeiler): we may want to make this a clarifai CLI call.
 ENTRYPOINT ["python", "-m", "clarifai.runners.server"]

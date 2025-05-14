@@ -235,7 +235,7 @@ def display():
     python_version = st.selectbox(
       "Python Version", 
         [
-          "3.11", 
+          "3.12", 
           # use fixed env
           #"3.12"
         ]
