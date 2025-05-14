@@ -10,8 +10,8 @@ FRAMEWORK_INFO = {
     "github": "https://github.com/InternLM/lmdeploy",
     "supported_models": "https://lmdeploy.readthedocs.io/en/latest/supported_models/supported_models.html",
     "requirements": [
-      "torch==2.5.1",
-      "lmdeploy==0.7.2",
+      "torch==2.6.0",
+      "lmdeploy==0.8.0",
       "transformers>=4.51.2",
       "partial-json-parser",
       ],
@@ -40,9 +40,9 @@ FRAMEWORK_INFO = {
     "github": "https://github.com/sgl-project/sgl-project.github.io",
     "supported_models": "https://docs.sglang.ai/references/supported_models.html",
     "requirements": [
-        "torch==2.5.1",
-      "--find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python",
-      "sglang[all]>=0.4.6",
+      "torch==2.6.0",
+      "--find-links https://flashinfer.ai/whl/cu124/torch2.6/flashinfer-python",
+      "sglang[all]>=0.4.6.post2",
       "transformers",
     ],
     "init_args": inspect_function_args(OpenAI_APIServer.from_sglang_backend, drop_keys=["checkpoints"]),

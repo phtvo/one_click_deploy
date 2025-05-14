@@ -124,7 +124,7 @@ def run_subprocess(command):
     try:
       while True:
         try:
-            line = output_queue.get(timeout=None)
+            line = output_queue.get(timeout=30)
         except queue.Empty:
             break
             
@@ -155,6 +155,8 @@ def run_subprocess(command):
           break
         if process.poll() is not None and output_queue.empty():
           break
+    except Exception as e:
+      logger.info(f"Error when parsing build log: {e}")
     finally:
       logger.info("Kill process")
       kill_process(process)
