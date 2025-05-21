@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.13-labs
-FROM --platform=$TARGETPLATFORM public.ecr.aws/clarifai-models/torch:2.6.0-py3.12-cu126-b8ae56bf3b7c95e686ca002b07ca83d259c716eb as final
+FROM --platform=$TARGETPLATFORM public.ecr.aws/clarifai-models/torch:2.5.1-py3.11-cuda124-df565436eea93efb3e8d1eb558a0a46df29523ec as final
 
 COPY --link requirements.txt /home/nonroot/requirements.txt
 

@@ -109,7 +109,7 @@ def run_subprocess(command):
     process.stdin.write("\n")
     process.stdin.flush()
     # Start reader thread
-    log_queue = queue.Queue(maxsize=30)
+    log_queue = queue.Queue(maxsize=60)
     output_queue = queue.Queue()
     thread = threading.Thread(target=enqueue_output,
                               args=(process.stdout, output_queue))
@@ -124,7 +124,7 @@ def run_subprocess(command):
     try:
       while True:
         try:
-            line = output_queue.get(timeout=30)
+            line = output_queue.get(timeout=180)
         except queue.Empty:
             break
             
@@ -235,7 +235,7 @@ def display():
     python_version = st.selectbox(
       "Python Version", 
         [
-          "3.12", 
+          "3.11", 
           # use fixed env
           #"3.12"
         ]
@@ -496,7 +496,7 @@ def display():
             st.stop()
           with st.spinner("Testing model locally..."):
             cmds = [
-                PYTHON_EXEC, "-m" , "clarifai.cli", "model", "test-locally", "--model_path", str(generated_model_dir), "--keep_env", "--mode", "env"]
+                PYTHON_EXEC, "-m" , "clarifai.cli", "model", "test-locally", str(generated_model_dir), "--keep_env", "--mode", "env"]
             run_subprocess(cmds)
         else:
           st.error("Test locally is not allowed on cloud.")
