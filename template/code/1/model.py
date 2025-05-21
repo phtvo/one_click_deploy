@@ -86,7 +86,7 @@ class MyRunner(ModelClass):
   )-> str:
     """Method to call from UI
     """
-    logger.info(f"{max_tokens=},{temperature=}")
+
     completion = self.client.cl_custom_chat(
       prompt=prompt,
       system_prompt=system_prompt,
